@@ -17,77 +17,78 @@
   <script type="text/babel">
     const RESOURCE_NAMES = {
       2: 'Wood', 
-      3: 'Stone',
+      3: 'Stone',        
       4: 'Coal',
       5: 'Clay',
       6: 'Iron Ore',
-      9: 'Wood Beam',
-      14:'Steel Block',
-      15:'Iron Plate',
-      16:'Nails',
+      9: 'Wood Beam',   
+      14:'Steel Block',  
+      15:'Iron Plate',  
+      16:'Nails',  
       17:'Shovel',
-      18:'Spade',
-      19:'Pickax',
+      18:'Spade', 
+      19:'Pickax',        
       20:'Hammer',
       22:'Axe',
       25:'Cart',
-      31:'Coffee Beans',
-      50:'Mug Of Coffee',
+      31:'Coffee Beans',   
+      50:'Mug Of Coffee',  
       55:'Donkey',
       // …add more here.
     };
 
-    // Table with Δ column plus new Avg Amount & Avg Health
+    // Table with Δ and new raw Amount & Health columns
     const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices }) => (
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               {[
-                'resource','typeId',
-                'average','avgAmount','avgHealth',
-                'count','min','max','delta'
+                'resource','typeId','average',
+                'amount','health','count','min','max','delta'
               ].map(key=>{
                 const labels = {
-                  resource:    'Resource',
-                  typeId:      'Type ID',
-                  average:     'Avg Price',
-                  avgAmount:   'Avg Amount',
-                  avgHealth:   'Avg Health',
-                  count:       'Listings',
-                  min:         'Min',
-                  max:         'Max',
-                  delta:       'Δ Price'
+                  resource: 'Resource',
+                  typeId:   'Type ID',
+                  average:  'Avg Price',
+                  amount:   'Amount',
+                  health:   'Health',
+                  count:    'Listings',
+                  min:      'Min',
+                  max:      'Max',
+                  delta:    'Δ Price'
                 };
                 return (
-                  <th key={key}
-                      className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={()=> key!=='delta' && onSort(key)}>
+                  <th
+                    key={key}
+                    className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                    onClick={() => key !== 'delta' && onSort(key)}
+                  >
                     {labels[key]}
-                    {sortConfig.key===key && (sortConfig.direction==='asc'?' ↑':' ↓')}
+                    {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                   </th>
                 );
               })}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedPrices.map(([typeId, stats])=>{
-              const prevPrice = previousPrices[typeId];
-              const delta = prevPrice!=null
-                ? (stats.average - prevPrice).toFixed(2)
+            {sortedPrices.map(([typeId, stats]) => {
+              const prev = previousPrices[typeId];
+              const delta = prev != null
+                ? (stats.average - prev).toFixed(2)
                 : '—';
               return (
                 <tr key={typeId} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 whitespace-nowrap">{RESOURCE_NAMES[typeId]||'Unknown'}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{RESOURCE_NAMES[typeId] || 'Unknown'}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{stats.avgAmount}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{stats.avgHealth}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{stats.lastAmount}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{stats.lastHealth}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
                   <td className="px-4 py-2 whitespace-nowrap">
-                    <span className={delta>0?'text-green-600': delta<0?'text-red-600':''}>
+                    <span className={delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : ''}>
                       {delta}
                     </span>
                   </td>
@@ -104,21 +105,21 @@
       const chartRef = React.useRef(null);
       const chartInstance = React.useRef(null);
 
-      React.useEffect(()=>{
-        if(chartInstance.current) chartInstance.current.destroy();
+      React.useEffect(() => {
+        if (chartInstance.current) chartInstance.current.destroy();
         const ctx = chartRef.current.getContext('2d');
-        const labels = historicalData.map(d=>d.date);
+        const labels = historicalData.map(d => d.date);
         const datasets = [{
           label: 'Avg Price',
-          data: historicalData.map(d=>d.avgPrice),
+          data: historicalData.map(d => d.avgPrice),
           fill: false,
           tension: 0.1
         }];
-        if(previousPrice!=null){
+        if (previousPrice != null) {
           datasets.push({
             label: 'Last Refresh',
-            data: labels.map(()=>previousPrice),
-            borderDash: [5,5],
+            data: labels.map(() => previousPrice),
+            borderDash: [5, 5],
             fill: false,
             tension: 0
           });
@@ -126,7 +127,7 @@
         chartInstance.current = new Chart(ctx, {
           type: 'line',
           data: { labels, datasets },
-          options: { scales:{ y:{ beginAtZero:true } } }
+          options: { scales: { y: { beginAtZero: true } } }
         });
       }, [historicalData, previousPrice]);
 
@@ -142,10 +143,10 @@
       const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
 
-      // placeholder; swap out with your real historical API
+      // placeholder; swap with your historical source
       const historicalData = {
-        '2':[ /* … */ ],
-        '3':[ /* … */ ],
+        '2': [ /* … */ ],
+        '3': [ /* … */ ],
       };
 
       const RPCS = [
@@ -154,8 +155,8 @@
         'https://wax.cryptolions.io'
       ];
 
-      const fetchTable = async()=>{
-        for(const base of RPCS){
+      const fetchTable = async () => {
+        for (const base of RPCS) {
           try {
             const r = await axios.post(
               `${base}/v1/chain/get_table_rows`,
@@ -166,61 +167,61 @@
                 table: 'market',
                 limit: 100
               },
-              { headers:{'Content-Type':'application/json'} }
+              { headers: { 'Content-Type': 'application/json' } }
             );
             return r.data.rows;
-          } catch{}
+          } catch {}
         }
         throw new Error('All RPCs failed');
       };
 
-      const process = rows=>{
-        const b = {};
-        rows.forEach(item=>{
-          const id        = item.stuff.type_id;
-          const price     = parseFloat(item.price);
-          const amount    = parseFloat(item.stuff.amount);
-          const health    = parseFloat(item.health);
-          if(!b[id]) {
-            b[id] = {
-              prices:   [], min:price, max:price,
-              amounts:  [], amountMin:amount, amountMax:amount,
-              healths:  [], healthMin:health, healthMax:health
+      const process = rows => {
+        const buckets = {};
+        rows.forEach(item => {
+          const id     = item.stuff.type_id;
+          const price  = parseFloat(item.price);
+          const amount = parseFloat(item.stuff.amount);
+          const health = parseFloat(item.health);
+
+          if (!buckets[id]) {
+            buckets[id] = {
+              prices:   [], 
+              min: price, 
+              max: price,
+              lastAmount: amount,
+              lastHealth: health
             };
           } else {
-            b[id].min       = Math.min(b[id].min, price);
-            b[id].max       = Math.max(b[id].max, price);
-            b[id].amountMin = Math.min(b[id].amountMin, amount);
-            b[id].amountMax = Math.max(b[id].amountMax, amount);
-            b[id].healthMin = Math.min(b[id].healthMin, health);
-            b[id].healthMax = Math.max(b[id].healthMax, health);
+            buckets[id].min = Math.min(buckets[id].min, price);
+            buckets[id].max = Math.max(buckets[id].max, price);
+            // overwrite with most recent listing’s amount & health
+            buckets[id].lastAmount = amount;
+            buckets[id].lastHealth = health;
           }
-          b[id].prices.push(price);
-          b[id].amounts.push(amount);
-          b[id].healths.push(health);
+          buckets[id].prices.push(price);
         });
 
         return Object.fromEntries(
-          Object.entries(b).map(([id, vals])=>{
-            const avg = arr=> (arr.reduce((a,c)=>a+c,0)/arr.length).toFixed(2);
-            return [ id, {
-              average:    +avg(vals.prices),
-              avgAmount:  +avg(vals.amounts),
-              avgHealth:  +avg(vals.healths),
-              count:      vals.prices.length,
-              min:        +vals.min.toFixed(2),
-              max:        +vals.max.toFixed(2)
+          Object.entries(buckets).map(([id, b]) => {
+            const avg = b.prices.reduce((a, c) => a + c, 0) / b.prices.length;
+            return [id, {
+              average:    +avg.toFixed(2),
+              lastAmount: b.lastAmount,
+              lastHealth: b.lastHealth,
+              count:      b.prices.length,
+              min:        +b.min.toFixed(2),
+              max:        +b.max.toFixed(2)
             }];
           })
         );
       };
 
-      const fetchData = async()=>{
+      const fetchData = async () => {
         setIsLoading(true);
         setErrorMsg(null);
 
         // load lastPrices
-        const stored = JSON.parse(localStorage.getItem('lastPrices')||'{}');
+        const stored = JSON.parse(localStorage.getItem('lastPrices') || '{}');
         setPreviousPrices(stored);
 
         try {
@@ -228,7 +229,7 @@
           const proc = process(rows);
           setPrices(proc);
 
-          // save current prices for next δ
+          // save current averages for next Δ
           localStorage.setItem('lastPrices',
             JSON.stringify(
               Object.fromEntries(
@@ -237,37 +238,36 @@
             )
           );
 
-          if(!selectedTypeId && Object.keys(proc).length)
+          if (!selectedTypeId && Object.keys(proc).length) {
             setSelectedTypeId(Object.keys(proc)[0]);
-
+          }
           setLastUpdated(new Date());
-        } catch(e){
+        } catch (e) {
           setErrorMsg(e.message);
         } finally {
           setIsLoading(false);
         }
       };
 
-      React.useEffect(fetchData,[]);
+      React.useEffect(fetchData, []);
 
-      const sorted = React.useMemo(()=>{
+      const sorted = React.useMemo(() => {
         const arr = Object.entries(prices);
-        return arr.sort((a,b)=>{
+        return arr.sort((a,b) => {
           let A, B;
-          switch(sortConfig.key){
+          switch (sortConfig.key) {
             case 'resource':
               A = RESOURCE_NAMES[a[0]]; B = RESOURCE_NAMES[b[0]]; break;
             case 'typeId':
               A = +a[0]; B = +b[0]; break;
             default:
-              A = a[1][sortConfig.key];
-              B = b[1][sortConfig.key];
+              A = a[1][sortConfig.key]; B = b[1][sortConfig.key];
           }
-          if(A < B) return sortConfig.direction==='asc' ? -1 : 1;
-          if(A > B) return sortConfig.direction==='asc' ?  1 : -1;
+          if (A < B) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (A > B) return sortConfig.direction === 'asc' ? 1 : -1;
           return 0;
         });
-      },[prices,sortConfig]);
+      }, [prices, sortConfig]);
 
       return (
         <div className="container mx-auto p-4">
@@ -311,7 +311,7 @@
             <h2 className="text-xl font-semibold mb-4">Historical Price Trends</h2>
             {sorted.length > 0 && (
               <select
-                value={selectedTypeId || ''}
+                value={selectedTypeId||''}
                 onChange={e=>setSelectedTypeId(e.target.value)}
                 className="mb-4 p-2 border rounded w-full sm:w-48"
               >
