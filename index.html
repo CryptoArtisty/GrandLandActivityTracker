@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -15,6 +15,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
+    const EXCHANGE_RATE = 1000; // 1 Wax = 1000 gold (adjust as needed)
     const RESOURCE_NAMES = {
       2: 'Coal',
       3: 'Clay',
@@ -28,26 +29,24 @@
         <table className="min-w-full bg-white divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {['resource','typeId','average','count','min','max'].map(key => {
-                const labelMap = {
-                  resource: 'Resource',
-                  typeId: 'Type ID',
-                  average: 'Average Price (Gold)',
-                  count: 'Listings',
-                  min: 'Min Price (Gold)',
-                  max: 'Max Price (Gold)'
-                };
-                return (
-                  <th
-                    key={key}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => onSort(key)}
-                  >
-                    {labelMap[key]}
-                    {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                  </th>
-                );
-              })}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('resource')}>
+                Resource {sortConfig.key === 'resource' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('typeId')}>
+                Type ID {sortConfig.key === 'typeId' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('average')}>
+                Average Price (Gold) {sortConfig.key === 'average' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('count')}>
+                Listings {sortConfig.key === 'count' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('min')}>
+                Min Price (Gold) {sortConfig.key === 'min' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('max')}>
+                Max Price (Gold) {sortConfig.key === 'max' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -68,7 +67,7 @@
 
     const PriceChart = ({ historicalData }) => {
       const chartRef = React.useRef(null);
-      let chartInstance = React.useRef(null);
+      const chartInstance = React.useRef(null);
 
       React.useEffect(() => {
         if (chartInstance.current) chartInstance.current.destroy();
@@ -80,6 +79,8 @@
             datasets: [{
               label: 'Average Price (Gold)',
               data: historicalData.map(d => d.avgPrice),
+              borderColor: 'rgba(75, 192, 192, 1)',
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
               fill: true,
             }],
           },
@@ -97,10 +98,24 @@
       const [selectedTypeId, setSelectedTypeId] = React.useState(null);
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
-      const [lastRefreshed, setLastRefreshed] = React.useState(null);
 
-      // Sample historical data; replace with real data
-      const historicalData = { /* ... */ };
+      // Sample historical data; replace with real data from a database or API
+      const historicalData = {
+        '2': [
+          { date: '2023-10-01', avgPrice: 0.5 },
+          { date: '2023-10-02', avgPrice: 0.6 },
+          { date: '2023-10-03', avgPrice: 0.55 },
+          { date: '2023-10-04', avgPrice: 0.58 },
+          { date: '2023-10-05', avgPrice: 0.62 },
+        ],
+        '3': [
+          { date: '2023-10-01', avgPrice: 0.3 },
+          { date: '2023-10-02', avgPrice: 0.35 },
+          { date: '2023-10-03', avgPrice: 0.32 },
+          { date: '2023-10-04', avgPrice: 0.34 },
+          { date: '2023-10-05', avgPrice: 0.36 },
+        ],
+      };
 
       const RPC_ENDPOINTS = [
         'https://wax.greymass.com',
@@ -112,7 +127,7 @@
         for (let base of RPC_ENDPOINTS) {
           try {
             const resp = await axios.post(
-              \`\${base}/v1/chain/get_table_rows\`,
+              ${base}/v1/chain/get_table_rows,
               {
                 json: true,
                 code: 'prospectorsn',
@@ -124,19 +139,19 @@
             );
             return resp.data.rows;
           } catch (e) {
-            console.warn(\`RPC \${base} failed:\`, e.response?.status ?? e.message);
+            console.warn(RPC ${base} failed:, e.response?.status ?? e.message);
           }
         }
         throw new Error('All RPC endpoints failed');
       };
 
-      const processMarketData = (data, exchangeRate) => {
+      const processMarketData = (data) => {
         const buckets = {};
         data.forEach(item => {
           const id = item.stuff.type_id;
           const unitCount = item.stuff.amount;
           const priceInWax = item.price;
-          const priceInGold = priceInWax * exchangeRate;
+          const priceInGold = priceInWax * EXCHANGE_RATE;
           const ppInGold = priceInGold / unitCount;
           if (!buckets[id]) {
             buckets[id] = { prices: [], min: ppInGold, max: ppInGold };
@@ -163,23 +178,20 @@
         setIsLoading(true);
         setErrorMsg(null);
         try {
-          // 1. Fetch PGL/WAX price
-          const res = await axios.get('https://wax.alcor.exchange/api/markets/0');
-          const pglWaxPrice = parseFloat(res.data.last_price); // WAX per PGL
-          const exchangeRate = 1000 / pglWaxPrice; // gold per WAX
-
-          // 2. Fetch market rows
           const rows = await fetchTableRows();
-          const processed = processMarketData(rows, exchangeRate);
-
+          const processed = processMarketData(rows);
           setPrices(processed);
-          if (!selectedTypeId && Object.keys(processed).length) {
+          if (Object.keys(processed).length > 0 && !selectedTypeId) {
             setSelectedTypeId(Object.keys(processed)[0]);
           }
-          setLastRefreshed(new Date());
         } catch (error) {
-          console.error(error);
-          setErrorMsg(error.message);
+          if (error.response) {
+            console.error('[RPC ERROR]', error.response.status, error.response.data);
+            setErrorMsg(RPC error ${error.response.status}: see console.);
+          } else {
+            console.error('[NETWORK ERROR]', error.message);
+            setErrorMsg(Network error: ${error.message});
+          }
         } finally {
           setIsLoading(false);
         }
@@ -189,81 +201,73 @@
         fetchData();
       }, []);
 
-      const handleSort = key => {
-        setSortConfig(prev => ({
-          key,
-          direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
-        }));
+      const handleSort = (key) => {
+        setSortConfig(prev => {
+          if (prev.key === key) {
+            return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+          } else {
+            return { key, direction: 'asc' };
+          }
+        });
       };
 
       const sortedPrices = React.useMemo(() => {
         const entries = Object.entries(prices);
+        if (!sortConfig.key) return entries;
         return entries.sort((a, b) => {
-          let [aVal, bVal];
+          let aValue, bValue;
           if (sortConfig.key === 'resource') {
-            aVal = RESOURCE_NAMES[a[0]] || '';
-            bVal = RESOURCE_NAMES[b[0]] || '';
+            aValue = RESOURCE_NAMES[a[0]] || 'Unknown';
+            bValue = RESOURCE_NAMES[b[0]] || 'Unknown';
           } else if (sortConfig.key === 'typeId') {
-            aVal = +a[0]; bVal = +b[0];
+            aValue = parseInt(a[0]);
+            bValue = parseInt(b[0]);
           } else {
-            aVal = +a[1][sortConfig.key];
-            bVal = +b[1][sortConfig.key];
+            aValue = parseFloat(a[1][sortConfig.key]);
+            bValue = parseFloat(b[1][sortConfig.key]);
           }
-          if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
           return 0;
         });
       }, [prices, sortConfig]);
 
       return (
         <div className="container mx-auto p-4">
-          <h1 className="text-3xl font-bold mb-2 text-center">Prospectors Price Tracker</h1>
-          <div className="flex justify-between items-center mb-4">
-            <button 
-              onClick={fetchData} 
-              disabled={isLoading} 
-              className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              {isLoading ? 'Refreshing…' : 'Refresh'}
-            </button>
-            {lastRefreshed && (
-              <span className="text-gray-600 italic">
-                Last Refreshed: {lastRefreshed.toLocaleString()}
-              </span>
+          <h1 className="text-3xl font-bold mb-6 text-center">Prospectors Price Tracker</h1>
+          <button onClick={fetchData} disabled={isLoading} className="mb-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+          {isLoading && <div className="mb-4 text-gray-600">Loading...</div>}
+          {errorMsg && <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">{errorMsg}</div>}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Current Average Prices</h2>
+            {Object.keys(prices).length > 0 ? (
+              <PriceTable sortedPrices={sortedPrices} onSort={handleSort} sortConfig={sortConfig} />
+            ) : (
+              <div>No data available</div>
             )}
           </div>
-          {errorMsg && <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">{errorMsg}</div>}
-          
-          <section className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Current Average Prices</h2>
-            {Object.keys(prices).length > 0 
-              ? <PriceTable sortedPrices={sortedPrices} onSort={handleSort} sortConfig={sortConfig} />
-              : <p>No data available</p>
-            }
-          </section>
-
-          <section>
+          <div>
             <h2 className="text-xl font-semibold mb-4">Historical Price Trends</h2>
             {Object.keys(prices).length > 0 && (
               <select
                 value={selectedTypeId || ''}
-                onChange={e => setSelectedTypeId(e.target.value)}
+                onChange={(e) => setSelectedTypeId(e.target.value)}
                 className="mb-4 p-2 border rounded w-full sm:w-48"
               >
                 <option value="">Select Type ID</option>
                 {Object.keys(prices).map(typeId => (
-                  <option key={typeId} value={typeId}>
-                    {RESOURCE_NAMES[typeId] || 'Unknown'} ({typeId})
-                  </option>
+                  <option key={typeId} value={typeId}>{RESOURCE_NAMES[typeId] || 'Unknown'} ({typeId})</option>
                 ))}
               </select>
             )}
-            {selectedTypeId && historicalData[selectedTypeId] 
-             ? <PriceChart historicalData={historicalData[selectedTypeId]} />
-             : <p>No historical data available for this Type ID</p>
-            }
-          </section>
-
+            {selectedTypeId && historicalData[selectedTypeId] ? (
+              <PriceChart historicalData={historicalData[selectedTypeId]} />
+            ) : (
+              <div>No historical data available for this Type ID</div>
+            )}
+          </div>
           <footer className="mt-8 text-center text-gray-500">
             <p>Powered by WAX Blockchain | Deployed on Vercel</p>
           </footer>
