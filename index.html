@@ -16,56 +16,45 @@
 
   <script type="text/babel">
     const RESOURCE_NAMES = {
-2: 'Wood', 
-3: 'Stone',        
-4: 'Coal',
-      
-5: 'Clay',
-6: 'Iron Ore',
-      
-9: 'Wood Beam',   
-
-14: 'Steel Block',  
-15: 'Iron Plate',  
-16: 'Nails',  
-17: 'Shovel',
-18: 'Spade', 
-19: 'Pickax',        
-20: 'Hammer',
-      
-22: 'Axe',
-      
-25: 'Cart',
-      
-31: 'Coffee Beans',   
-
-50: 'Mug Of Coffee',  
-
-55: 'Donkey',
-
+      2: 'Wood',
+      3: 'Stone',
+      4: 'Coal',
+      5: 'Clay',
+      6: 'Iron Ore',
+      9: 'Wood Beam',
+      14: 'Steel Block',
+      15: 'Iron Plate',
+      16: 'Nails',
+      17: 'Shovel',
+      18: 'Spade',
+      19: 'Pickax',
+      20: 'Hammer',
+      22: 'Axe',
+      25: 'Cart',
+      31: 'Coffee Beans',
+      50: 'Mug Of Coffee',
+      55: 'Donkey',
       // …add more here.
     };
 
-    // Table with Δ column
-    const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices }) => (
+    // Now raw listings table
+    const ListingsTable = ({ listings, onSort, sortConfig }) => (
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {['resource','typeId','average','count','min','max','delta'].map(key=>{
+              {['resource','typeId','price','amount','health'].map(key=>{
                 const labels = {
                   resource: 'Resource',
                   typeId: 'Type ID',
-                  average: 'Avg Price',
-                  count: 'Listings',
-                  min: 'Min',
-                  max: 'Max',
-                  delta: 'Δ since last'
+                  price: 'Price',
+                  amount: 'Amount',
+                  health: 'Health'
                 };
                 return (
                   <th key={key}
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={()=>key!=='delta' && onSort(key)}>
+                      onClick={()=>onSort(key)}>
                     {labels[key]}
                     {sortConfig.key===key && (sortConfig.direction==='asc'?' ↑':' ↓')}
                   </th>
@@ -74,26 +63,17 @@
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedPrices.map(([typeId, stats])=>{
-              const prev = previousPrices[typeId];
-              const delta = prev!=null
-                ? (stats.average - prev).toFixed(2)
-                : '—';
+            {listings.map((item, idx)=>{
+              const { type_id, price, stuff: { amount, health } } = item;
               return (
-                <tr key={typeId} className="hover:bg-gray-50">
+                <tr key={idx} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {RESOURCE_NAMES[typeId]||'Unknown'}
+                    {RESOURCE_NAMES[type_id]||'Unknown'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{typeId}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{stats.average}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{stats.count}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{stats.min}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{stats.max}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={delta>0?'text-green-600': delta<0?'text-red-600':''}>
-                      {delta}
-                    </span>
-                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">{type_id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{price}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{amount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{health}</td>
                 </tr>
               );
             })}
@@ -102,7 +82,7 @@
       </div>
     );
 
-    // Chart overlays last-refresh flat line
+    // Chart stays unchanged (aggregates historicalData), we keep it intact
     const PriceChart = ({ historicalData, previousPrice }) => {
       const chartRef = React.useRef(null);
       const chartInstance = React.useRef(null);
@@ -111,15 +91,14 @@
         if(chartInstance.current) chartInstance.current.destroy();
         const ctx = chartRef.current.getContext('2d');
         const labels = historicalData.map(d=>d.date);
-        const dataSet = [{
+        const datasets = [{
           label: 'Avg Price',
           data: historicalData.map(d=>d.avgPrice),
           fill: false,
           tension: 0.1
         }];
-
         if(previousPrice!=null){
-          dataSet.push({
+          datasets.push({
             label: 'Last Refresh',
             data: labels.map(()=>previousPrice),
             borderDash: [5,5],
@@ -127,10 +106,9 @@
             tension: 0
           });
         }
-
         chartInstance.current = new Chart(ctx, {
           type: 'line',
-          data: { labels, datasets: dataSet },
+          data: { labels, datasets },
           options: { scales:{ y:{ beginAtZero:true } } }
         });
       }, [historicalData, previousPrice]);
@@ -139,17 +117,17 @@
     };
 
     const App = () => {
-      const [prices, setPrices] = React.useState({});
-      const [previousPrices, setPreviousPrices] = React.useState({});
+      const [listings, setListings] = React.useState([]);
       const [sortConfig, setSortConfig] = React.useState({key:'typeId',direction:'asc'});
       const [selectedTypeId, setSelectedTypeId] = React.useState(null);
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
 
+      // reuse your historicalData
       const historicalData = {
-        '2':[ /* … */ ],
-        '3':[ /* … */ ],
+        '2':[ /*…*/ ],
+        '3':[ /*…*/ ],
       };
 
       const RPCS = [
@@ -158,7 +136,7 @@
         'https://wax.cryptolions.io'
       ];
 
-      const fetchTable = async()=>{
+      const fetchMarket = async()=>{
         for(const base of RPCS){
           try {
             const r = await axios.post(
@@ -173,51 +151,14 @@
         throw new Error('All RPCs failed');
       };
 
-      const process = rows=>{
-        const b = {};
-        rows.forEach(item=>{
-          const id = item.stuff.type_id;
-          const p  = parseFloat(item.price);
-          if(!b[id]) b[id]={prices:[], min:p, max:p};
-          else {
-            b[id].min = Math.min(b[id].min, p);
-            b[id].max = Math.max(b[id].max, p);
-          }
-          b[id].prices.push(p);
-        });
-        return Object.fromEntries(
-          Object.entries(b).map(([id, {prices,min,max}])=>[
-            id, {
-              average: +(prices.reduce((a,c)=>a+c,0)/prices.length).toFixed(2),
-              count: prices.length,
-              min: +min.toFixed(2),
-              max: +max.toFixed(2)
-            }
-          ])
-        );
-      };
-
       const fetchData = async()=>{
         setIsLoading(true);
         setErrorMsg(null);
-
-        // load lastPrices
-        const stored = JSON.parse(localStorage.getItem('lastPrices')||'{}');
-        setPreviousPrices(stored);
-
         try {
-          const rows = await fetchTable();
-          const proc = process(rows);
-          setPrices(proc);
-
-          // save current as last for next time
-          localStorage.setItem('lastPrices', JSON.stringify(
-            Object.fromEntries(Object.entries(proc).map(([k,v])=>[k,v.average]))
-          ));
-
-          if(!selectedTypeId && Object.keys(proc).length)
-            setSelectedTypeId(Object.keys(proc)[0]);
-
+          const rows = await fetchMarket();
+          setListings(rows);
+          if(!selectedTypeId && rows.length)
+            setSelectedTypeId(rows[0].stuff.type_id);
           setLastUpdated(new Date());
         } catch(e){
           setErrorMsg(e.message);
@@ -226,38 +167,45 @@
         }
       };
 
-      React.useEffect(fetchData,[]);
+      React.useEffect(fetchData, []);
 
-      const sorted = React.useMemo(()=>{
-        const arr = Object.entries(prices);
-        return arr.sort((a,b)=>{
-          let A,B;
-          switch(sortConfig.key){
-            case 'resource':
-              A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
-            case 'typeId':
-              A=+a[0]; B=+b[0]; break;
-            default:
-              A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
+      const sortedListings = React.useMemo(()=>{
+        const arr = [...listings];
+        const { key, direction } = sortConfig;
+        arr.sort((a,b)=>{
+          let A, B;
+          if(key==='resource'){
+            A = RESOURCE_NAMES[a.stuff.type_id]||'Unknown';
+            B = RESOURCE_NAMES[b.stuff.type_id]||'Unknown';
+          } else if(key==='typeId'){
+            A = a.stuff.type_id; B = b.stuff.type_id;
+          } else {
+            A = a[key]; B = b[key];
+            if(key!=='price'){
+              A = a.stuff[key]; B = b.stuff[key];
+            }
           }
-          if(A<B) return sortConfig.direction==='asc'? -1:1;
-          if(A>B) return sortConfig.direction==='asc'?  1:-1;
+          if(A < B) return direction==='asc'? -1:1;
+          if(A > B) return direction==='asc'? 1:-1;
           return 0;
         });
-      },[prices,sortConfig]);
+        return arr;
+      }, [listings, sortConfig]);
 
       return (
         <div className="container mx-auto p-4">
           <h1 className="text-3xl font-bold mb-6 text-center">
             Prospectors Price Tracker
           </h1>
+
           <button
             onClick={fetchData}
             disabled={isLoading}
             className="mb-2 p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            {isLoading?'Refreshing…':'Refresh'}
+            {isLoading ? 'Refreshing…' : 'Refresh'}
           </button>
+
           {lastUpdated && (
             <div className="mb-4 text-gray-600">
               Last refreshed: {lastUpdated.toLocaleString()}
@@ -273,15 +221,14 @@
             <h2 className="text-xl font-semibold mb-4">
               Latest Listings And Prices
             </h2>
-            {sorted.length
-              ? <PriceTable
-                  sortedPrices={sorted}
+            {sortedListings.length
+              ? <ListingsTable
+                  listings={sortedListings}
                   onSort={k=>setSortConfig(prev=>({
                     key:k,
                     direction: prev.key===k && prev.direction==='asc'?'desc':'asc'
                   }))}
                   sortConfig={sortConfig}
-                  previousPrices={previousPrices}
                 />
               : <div>No data</div>
             }
@@ -291,14 +238,14 @@
             <h2 className="text-xl font-semibold mb-4">
               Historical Price Trends
             </h2>
-            {sorted.length > 0 && (
+            {sortedListings.length > 0 && (
               <select
                 value={selectedTypeId||''}
                 onChange={e=>setSelectedTypeId(e.target.value)}
                 className="mb-4 p-2 border rounded w-full sm:w-48"
               >
                 <option value="">Select Type ID</option>
-                {sorted.map(([id])=>(
+                {Array.from(new Set(sortedListings.map(item=>item.stuff.type_id))).map(id=>(
                   <option key={id} value={id}>
                     {RESOURCE_NAMES[id]||'Unknown'} ({id})
                   </option>
@@ -308,7 +255,7 @@
             {selectedTypeId && historicalData[selectedTypeId] ? (
               <PriceChart
                 historicalData={historicalData[selectedTypeId]}
-                previousPrice={previousPrices[selectedTypeId] || null}
+                previousPrice={null}
               />
             ) : (
               <div>No historical data for this Type ID</div>
