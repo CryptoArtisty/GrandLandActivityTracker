@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Prospectors Price Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const PriceTable = ({ prices }) => (
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white">
+          <thead>
+            <tr>
+              <th className="py-2 px-4 border-b">Type ID</th>
+              <th className="py-2 px-4 border-b">Average Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(prices).map(([typeId, avgPrice]) => (
+              <tr key={typeId}>
+                <td className="py-2 px-4 border-b">{typeId}</td>
+                <td className="py-2 px-4 border-b">{avgPrice} WAX</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
+    const PriceChart = ({ historicalData }) => {
+      const chartRef = React.useRef(null);
+      const chartInstance = React.useRef(null);
+
+      React.useEffect(() => {
+        if (chartInstance.current) chartInstance.current.destroy();
+        const ctx = chartRef.current.getContext('2d');
+        chartInstance.current = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: historicalData.map(d => d.date),
+            datasets: [{
+              label: 'Average Price (WAX)',
+              data: historicalData.map(d => d.avgPrice),
+              borderColor: 'rgba(75, 192, 192, 1)',
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+              fill: true,
+            }],
+          },
+          options: { scales: { y: { beginAtZero: true } } }
+        });
+        return () => chartInstance.current && chartInstance.current.destroy();
+      }, [historicalData]);
+
+      return <canvas ref={chartRef} />;
+    };
+
+    const App = () => {
+      const [prices, setPrices] = React.useState({});
+      const [errorMsg, setErrorMsg] = React.useState(null);
+
+      const historicalData = [
+        { date: "2023-10-01", avgPrice: 0.5 },
+        { date: "2023-10-02", avgPrice: 0.6 },
+        { date: "2023-10-03", avgPrice: 0.55 },
+      ];
+
+      const RPC_ENDPOINTS = [
+        'https://wax.greymass.com',
+        'https://apiwax.cryptolions.io',
+        'https://wax.cryptolions.io'
+      ];
+
+      const fetchTableRows = async () => {
+        for (let base of RPC_ENDPOINTS) {
+          try {
+            const resp = await axios.post(
+              `${base}/v1/chain/get_table_rows`,
+              {
+                json: true,
+                code: 'prospectorsn',
+                scope: 'prospectorsn',
+                table: 'market',
+                limit: 100,
+              },
+              { headers: { 'Content-Type': 'application/json' } }
+            );
+            return resp.data.rows;
+          } catch (e) {
+            console.warn(`RPC ${base} failed:`, e.response?.status ?? e.message);
+          }
+        }
+        throw new Error('All RPC endpoints failed');
+      };
+
+      React.useEffect(() => {
+        const fetchData = async () => {
+          try {
+            const rows = await fetchTableRows();
+            const avg = processMarketData(rows);
+            setPrices(avg);
+          } catch (error) {
+            // un-hide real error
+            if (error.response) {
+              console.error('[RPC ERROR]', error.response.status, error.response.data);
+              setErrorMsg(`RPC error ${error.response.status}: see console.`);
+            } else {
+              console.error('[NETWORK ERROR]', error.message);
+              setErrorMsg(`Network error: ${error.message}`);
+            }
+          }
+        };
+        fetchData();
+      }, []);
+
+      const processMarketData = (data) => {
+        const buckets = {};
+        data.forEach(item => {
+          const id = item.stuff.type_id;
+          const unitCount = item.stuff.amount;
+          const pp = item.price / unitCount;
+          buckets[id] = buckets[id] || [];
+          buckets[id].push(pp);
+        });
+        return Object.fromEntries(
+          Object.entries(buckets).map(([id, arr]) => [
+            id,
+            (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2)
+          ])
+        );
+      };
+
+      return (
+        <div className="container mx-auto p-4">
+          <h1 className="text-3xl font-bold mb-6 text-center">
+            Prospectors Price Tracker
+          </h1>
+
+          {errorMsg && (
+            <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">
+              {errorMsg}
+            </div>
+          )}
+
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Current Average Prices</h2>
+            <PriceTable prices={prices} />
+          </div>
+
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Historical Price Trends</h2>
+            <PriceChart historicalData={historicalData} />
+          </div>
+
+          <footer className="mt-8 text-center text-gray-500">
+            <p>Powered by WAX Blockchain | Deployed on Vercel</p>
+          </footer>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
