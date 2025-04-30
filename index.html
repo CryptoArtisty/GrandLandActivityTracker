@@ -37,7 +37,7 @@
       // …add more here.
     };
 
-    // Table with Δ and new raw Amount & Health columns
+    // Table with Δ and raw Amount & Health columns
     const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices }) => (
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white divide-y divide-gray-200">
@@ -181,11 +181,11 @@
           const id     = item.stuff.type_id;
           const price  = parseFloat(item.price);
           const amount = parseFloat(item.stuff.amount);
-          const health = parseFloat(item.health);
+          const health = parseInt(item.stuff.health, 10);       // raw integer
 
           if (!buckets[id]) {
             buckets[id] = {
-              prices:   [], 
+              prices: [], 
               min: price, 
               max: price,
               lastAmount: amount,
@@ -194,7 +194,7 @@
           } else {
             buckets[id].min = Math.min(buckets[id].min, price);
             buckets[id].max = Math.max(buckets[id].max, price);
-            // overwrite with most recent listing’s amount & health
+            // overwrite with the most recent row’s amount & health
             buckets[id].lastAmount = amount;
             buckets[id].lastHealth = health;
           }
