@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -15,49 +15,20 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const EXCHANGE_RATE = 1000; // 1 Wax = 1000 gold (adjust as needed)
-    const RESOURCE_NAMES = {
-      2: 'Coal',
-      3: 'Clay',
-      4: 'Iron Ore',
-      5: 'Gold',
-      // Add more mappings as needed
-    };
-
-    const PriceTable = ({ sortedPrices, onSort, sortConfig }) => (
+    const PriceTable = ({ prices }) => (
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-white divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full bg-white">
+          <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('resource')}>
-                Resource {sortConfig.key === 'resource' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('typeId')}>
-                Type ID {sortConfig.key === 'typeId' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('average')}>
-                Average Price (Gold) {sortConfig.key === 'average' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('count')}>
-                Listings {sortConfig.key === 'count' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('min')}>
-                Min Price (Gold) {sortConfig.key === 'min' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => onSort('max')}>
-                Max Price (Gold) {sortConfig.key === 'max' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-              </th>
+              <th className="py-2 px-4 border-b">Type ID</th>
+              <th className="py-2 px-4 border-b">Average Price</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sortedPrices.map(([typeId, stats]) => (
-              <tr key={typeId} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">{RESOURCE_NAMES[typeId] || 'Unknown'}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{typeId}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{stats.average}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{stats.count}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{stats.min}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{stats.max}</td>
+          <tbody>
+            {Object.entries(prices).map(([typeId, avgPrice]) => (
+              <tr key={typeId}>
+                <td className="py-2 px-4 border-b">{typeId}</td>
+                <td className="py-2 px-4 border-b">{avgPrice} WAX</td>
               </tr>
             ))}
           </tbody>
@@ -77,7 +48,7 @@
           data: {
             labels: historicalData.map(d => d.date),
             datasets: [{
-              label: 'Average Price (Gold)',
+              label: 'Average Price (WAX)',
               data: historicalData.map(d => d.avgPrice),
               borderColor: 'rgba(75, 192, 192, 1)',
               backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -94,28 +65,13 @@
 
     const App = () => {
       const [prices, setPrices] = React.useState({});
-      const [sortConfig, setSortConfig] = React.useState({ key: 'typeId', direction: 'asc' });
-      const [selectedTypeId, setSelectedTypeId] = React.useState(null);
-      const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
 
-      // Sample historical data; replace with real data from a database or API
-      const historicalData = {
-        '2': [
-          { date: '2023-10-01', avgPrice: 0.5 },
-          { date: '2023-10-02', avgPrice: 0.6 },
-          { date: '2023-10-03', avgPrice: 0.55 },
-          { date: '2023-10-04', avgPrice: 0.58 },
-          { date: '2023-10-05', avgPrice: 0.62 },
-        ],
-        '3': [
-          { date: '2023-10-01', avgPrice: 0.3 },
-          { date: '2023-10-02', avgPrice: 0.35 },
-          { date: '2023-10-03', avgPrice: 0.32 },
-          { date: '2023-10-04', avgPrice: 0.34 },
-          { date: '2023-10-05', avgPrice: 0.36 },
-        ],
-      };
+      const historicalData = [
+        { date: "2023-10-01", avgPrice: 0.5 },
+        { date: "2023-10-02", avgPrice: 0.6 },
+        { date: "2023-10-03", avgPrice: 0.55 },
+      ];
 
       const RPC_ENDPOINTS = [
         'https://wax.greymass.com',
@@ -127,7 +83,7 @@
         for (let base of RPC_ENDPOINTS) {
           try {
             const resp = await axios.post(
-              ${base}/v1/chain/get_table_rows,
+              `${base}/v1/chain/get_table_rows`,
               {
                 json: true,
                 code: 'prospectorsn',
@@ -139,135 +95,71 @@
             );
             return resp.data.rows;
           } catch (e) {
-            console.warn(RPC ${base} failed:, e.response?.status ?? e.message);
+            console.warn(`RPC ${base} failed:`, e.response?.status ?? e.message);
           }
         }
         throw new Error('All RPC endpoints failed');
       };
+
+      React.useEffect(() => {
+        const fetchData = async () => {
+          try {
+            const rows = await fetchTableRows();
+            const avg = processMarketData(rows);
+            setPrices(avg);
+          } catch (error) {
+            // un-hide real error
+            if (error.response) {
+              console.error('[RPC ERROR]', error.response.status, error.response.data);
+              setErrorMsg(`RPC error ${error.response.status}: see console.`);
+            } else {
+              console.error('[NETWORK ERROR]', error.message);
+              setErrorMsg(`Network error: ${error.message}`);
+            }
+          }
+        };
+        fetchData();
+      }, []);
 
       const processMarketData = (data) => {
         const buckets = {};
         data.forEach(item => {
           const id = item.stuff.type_id;
           const unitCount = item.stuff.amount;
-          const priceInWax = item.price;
-          const priceInGold = priceInWax * EXCHANGE_RATE;
-          const ppInGold = priceInGold / unitCount;
-          if (!buckets[id]) {
-            buckets[id] = { prices: [], min: ppInGold, max: ppInGold };
-          } else {
-            buckets[id].min = Math.min(buckets[id].min, ppInGold);
-            buckets[id].max = Math.max(buckets[id].max, ppInGold);
-          }
-          buckets[id].prices.push(ppInGold);
+          const pp = item.price / unitCount;
+          buckets[id] = buckets[id] || [];
+          buckets[id].push(pp);
         });
         return Object.fromEntries(
-          Object.entries(buckets).map(([id, { prices, min, max }]) => [
+          Object.entries(buckets).map(([id, arr]) => [
             id,
-            {
-              average: (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2),
-              count: prices.length,
-              min: min.toFixed(2),
-              max: max.toFixed(2),
-            },
+            (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2)
           ])
         );
       };
 
-      const fetchData = async () => {
-        setIsLoading(true);
-        setErrorMsg(null);
-        try {
-          const rows = await fetchTableRows();
-          const processed = processMarketData(rows);
-          setPrices(processed);
-          if (Object.keys(processed).length > 0 && !selectedTypeId) {
-            setSelectedTypeId(Object.keys(processed)[0]);
-          }
-        } catch (error) {
-          if (error.response) {
-            console.error('[RPC ERROR]', error.response.status, error.response.data);
-            setErrorMsg(RPC error ${error.response.status}: see console.);
-          } else {
-            console.error('[NETWORK ERROR]', error.message);
-            setErrorMsg(Network error: ${error.message});
-          }
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      React.useEffect(() => {
-        fetchData();
-      }, []);
-
-      const handleSort = (key) => {
-        setSortConfig(prev => {
-          if (prev.key === key) {
-            return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-          } else {
-            return { key, direction: 'asc' };
-          }
-        });
-      };
-
-      const sortedPrices = React.useMemo(() => {
-        const entries = Object.entries(prices);
-        if (!sortConfig.key) return entries;
-        return entries.sort((a, b) => {
-          let aValue, bValue;
-          if (sortConfig.key === 'resource') {
-            aValue = RESOURCE_NAMES[a[0]] || 'Unknown';
-            bValue = RESOURCE_NAMES[b[0]] || 'Unknown';
-          } else if (sortConfig.key === 'typeId') {
-            aValue = parseInt(a[0]);
-            bValue = parseInt(b[0]);
-          } else {
-            aValue = parseFloat(a[1][sortConfig.key]);
-            bValue = parseFloat(b[1][sortConfig.key]);
-          }
-          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-          return 0;
-        });
-      }, [prices, sortConfig]);
-
       return (
         <div className="container mx-auto p-4">
-          <h1 className="text-3xl font-bold mb-6 text-center">Prospectors Price Tracker</h1>
-          <button onClick={fetchData} disabled={isLoading} className="mb-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          {isLoading && <div className="mb-4 text-gray-600">Loading...</div>}
-          {errorMsg && <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">{errorMsg}</div>}
+          <h1 className="text-3xl font-bold mb-6 text-center">
+            Prospectors Price Tracker
+          </h1>
+
+          {errorMsg && (
+            <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">
+              {errorMsg}
+            </div>
+          )}
+
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Current Average Prices</h2>
-            {Object.keys(prices).length > 0 ? (
-              <PriceTable sortedPrices={sortedPrices} onSort={handleSort} sortConfig={sortConfig} />
-            ) : (
-              <div>No data available</div>
-            )}
+            <PriceTable prices={prices} />
           </div>
+
           <div>
             <h2 className="text-xl font-semibold mb-4">Historical Price Trends</h2>
-            {Object.keys(prices).length > 0 && (
-              <select
-                value={selectedTypeId || ''}
-                onChange={(e) => setSelectedTypeId(e.target.value)}
-                className="mb-4 p-2 border rounded w-full sm:w-48"
-              >
-                <option value="">Select Type ID</option>
-                {Object.keys(prices).map(typeId => (
-                  <option key={typeId} value={typeId}>{RESOURCE_NAMES[typeId] || 'Unknown'} ({typeId})</option>
-                ))}
-              </select>
-            )}
-            {selectedTypeId && historicalData[selectedTypeId] ? (
-              <PriceChart historicalData={historicalData[selectedTypeId]} />
-            ) : (
-              <div>No historical data available for this Type ID</div>
-            )}
+            <PriceChart historicalData={historicalData} />
           </div>
+
           <footer className="mt-8 text-center text-gray-500">
             <p>Powered by WAX Blockchain | Deployed on Vercel</p>
           </footer>
