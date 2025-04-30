@@ -22,268 +22,279 @@
       5: 'Gold',
     };
 
-    const PriceTable = ({ sortedPrices, rawListings, onSort, sortConfig }) => (
+    const PriceTable = ({ sortedPrices, onSort, sortConfig, prevPrices }) => (
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {['resource','typeId','average','count','min','max','raw'].map(key => {
+              {['resource','typeId','average','count','min','max','delta'].map(key => {
                 const labels = {
                   resource: 'Resource',
                   typeId: 'Type ID',
-                  average: 'Avg Price (Gold/unit)',
+                  average: 'Avg Price (Gold)',
                   count: 'Listings',
-                  min: 'Min (Gold/unit)',
-                  max: 'Max (Gold/unit)',
-                  raw: 'Raw Price (Gold)',
+                  min: 'Min (Gold)',
+                  max: 'Max (Gold)',
+                  delta: 'Δ since last'
                 };
                 return (
-                  <th
-                    key={key}
-                    className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => key!=='raw' && onSort(key)}
-                  >
-                    {labels[key]} {sortConfig.key===key && (sortConfig.direction==='asc'?'↑':'↓')}
+                  <th key={key}
+                      className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={()=> key!=='delta' && onSort(key)}>
+                    {labels[key]}
+                    {sortConfig.key===key && (sortConfig.direction==='asc'?' ↑':' ↓')}
                   </th>
-                );
+                )
               })}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedPrices.map(([typeId, stats]) => (
-              rawListings[typeId].map((listing, idx) => (
-                <tr key={`${typeId}-${idx}`} className="hover:bg-gray-50">
+            {sortedPrices.map(([typeId, stats]) => {
+              const prev = prevPrices[typeId]?.average;
+              const delta = prev ? (stats.average - prev).toFixed(2) : null;
+              const arrow = delta>0 ? '↑' : delta<0 ? '↓' : '';
+              return (
+                <tr key={typeId} className="hover:bg-gray-50">
                   <td className="px-4 py-2">{RESOURCE_NAMES[typeId]||'Unknown'}</td>
                   <td className="px-4 py-2">{typeId}</td>
-                  <td className="px-4 py-2">{idx===0 ? stats.average : ''}</td>
-                  <td className="px-4 py-2">{idx===0 ? stats.count : ''}</td>
-                  <td className="px-4 py-2">{idx===0 ? stats.min : ''}</td>
-                  <td className="px-4 py-2">{idx===0 ? stats.max : ''}</td>
-                  <td className="px-4 py-2">{listing.priceInGold.toFixed(2)}</td>
+                  <td className="px-4 py-2">{stats.average}</td>
+                  <td className="px-4 py-2">{stats.count}</td>
+                  <td className="px-4 py-2">{stats.min}</td>
+                  <td className="px-4 py-2">{stats.max}</td>
+                  <td className="px-4 py-2">{delta!==null? `${arrow}${Math.abs(delta)}` : '—'}</td>
                 </tr>
-              ))
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
     );
 
-    const PriceChart = ({ historyPoints }) => {
-      const chartRef = React.useRef(null);
+    const PriceChart = ({ hist, current, prev, prevTs, currTs }) => {
+      const ref = React.useRef(null);
+      const inst = React.useRef(null);
+
       React.useEffect(() => {
-        const ctx = chartRef.current.getContext('2d');
-        if (window._chart) window._chart.destroy();
-        window._chart = new Chart(ctx, {
-          type: 'bar',
+        if (inst.current) inst.current.destroy();
+        const ctx = ref.current.getContext('2d');
+
+        // build labels: historical dates + prevTs + currTs
+        const labels = hist.map(d=>d.date)
+                         .concat(prev? [new Date(prevTs).toLocaleDateString()]:[])
+                         .concat([new Date(currTs).toLocaleDateString()]);
+
+        const histData = hist.map(d=>d.avgPrice)
+                        .concat(prev? [null]:[])
+                        .concat([null]);
+
+        const prevData = hist.map(_=>null)
+                        .concat(prev?[prev]:[])
+                        .concat([null]);
+
+        const currData = hist.map(_=>null)
+                        .concat(prev?[null]:[])
+                        .concat([current]);
+
+        inst.current = new Chart(ctx, {
+          type: 'line',
           data: {
-            labels: historyPoints.map(p => p.label),
-            datasets: [{
-              label: 'Average Price (Gold/unit)',
-              data: historyPoints.map(p => p.value),
-              borderWidth: 1,
-            }],
+            labels,
+            datasets: [
+              {
+                label: 'Historical',
+                data: histData,
+                borderColor: 'rgba(75,192,192,1)',
+                backgroundColor: 'rgba(75,192,192,0.2)',
+                fill: true,
+              },
+              {
+                label: 'Last Refresh',
+                data: prevData,
+                borderDash: [5,5],
+              },
+              {
+                label: 'This Refresh',
+                data: currData,
+                pointStyle: 'rectRot',
+                pointRadius: 6,
+              }
+            ]
           },
-          options: { scales: { y: { beginAtZero: true } } }
+          options: { scales: { y: { beginAtZero:true } } }
         });
-      }, [historyPoints]);
-      return <canvas ref={chartRef} />;
+        return ()=> inst.current.destroy();
+      }, [hist, current, prev, prevTs, currTs]);
+
+      return <canvas ref={ref} />;
     };
 
     const App = () => {
       const [prices, setPrices] = React.useState({});
-      const [rawListings, setRawListings] = React.useState({});
-      const [sortConfig, setSortConfig] = React.useState({ key: 'typeId', direction: 'asc' });
-      const [selectedTypeId, setSelectedTypeId] = React.useState(null);
-      const [isLoading, setIsLoading] = React.useState(false);
-      const [errorMsg, setErrorMsg] = React.useState(null);
+      const [prevData, setPrevData] = React.useState({ prices: {}, timestamp: null });
+      const [sortConfig, setSortConfig] = React.useState({ key:'typeId', direction:'asc' });
+      const [sel, setSel] = React.useState(null);
+      const [loading, setLoading] = React.useState(false);
+      const [err, setErr] = React.useState(null);
       const [waxToGold, setWaxToGold] = React.useState(1000);
-      const [lastUpdated, setLastUpdated] = React.useState(null);
-      const [historyPoints, setHistoryPoints] = React.useState([]);
+      const [lastTs, setLastTs] = React.useState(null);
 
-      const RPC_ENDPOINTS = [
+      const historicalData = {
+        '2': [/*…*/], '3': [/*…*/] // your existing historical
+      };
+
+      React.useEffect(()=>{
+        const saved = localStorage.getItem('lastData');
+        if (saved) setPrevData(JSON.parse(saved));
+        fetchData();
+      },[]);
+
+      const RPCS = [
         'https://wax.greymass.com',
         'https://apiwax.cryptolions.io',
         'https://wax.cryptolions.io'
       ];
 
-      // Load last prices from localStorage
-      const loadLastPrices = () => {
-        try {
-          return JSON.parse(localStorage.getItem('lastPrices')||'{}');
-        } catch {
-          return {};
-        }
-      };
-      // Save current avg prices for next run
-      const saveLastPrices = (avgPrices) => {
-        localStorage.setItem('lastPrices', JSON.stringify(avgPrices));
-      };
-
-      const fetchTableRows = async () => {
-        for (let base of RPC_ENDPOINTS) {
+      const fetchTable = async () => {
+        for (let u of RPCS) {
           try {
-            const { data } = await axios.post(
-              `${base}/v1/chain/get_table_rows`,
-              { json: true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:100 },
-              { headers:{'Content-Type':'application/json'} }
-            );
-            return data.rows;
-          } catch (e) {
-            console.warn(`RPC ${base} failed`, e.message);
-          }
+            const r = await axios.post(`${u}/v1/chain/get_table_rows`, {
+              json:true, code:'prospectorsn', scope:'prospectorsn',
+              table:'market', limit:100
+            });
+            return r.data.rows;
+          } catch{ continue; }
         }
-        throw new Error('All RPC endpoints failed');
+        throw new Error('All RPCs failed');
       };
 
-      const fetchWaxToGoldRate = async () => {
+      const fetchRate = async () => {
         try {
-          const { data } = await axios.get('https://wax.alcor.exchange/api/markets/0');
-          const lp = parseFloat(data.last_price);
-          setWaxToGold((1 / lp) * 1000);
-        } catch (e) {
-          console.error('Failed to fetch PGL/WAX rate', e.message);
-        }
+          const r = await axios.get('https://wax.alcor.exchange/api/markets/0');
+          const lp = parseFloat(r.data.last_price);
+          setWaxToGold((1/lp)*1000);
+        } catch{}
       };
 
-      const processMarketData = (rows) => {
-        const buckets = {};
-        const raw = {};
-        rows.forEach(item => {
-          const id = item.stuff.type_id;
-          const unitCount = item.stuff.amount;
-          const priceWax = parseFloat(item.price);
-          const priceGold = priceWax * waxToGold;
-          const ppGold = priceGold / unitCount;
-          if (!buckets[id]) buckets[id] = { prices: [], min: ppGold, max: ppGold };
-          else {
-            buckets[id].min = Math.min(buckets[id].min, ppGold);
-            buckets[id].max = Math.max(buckets[id].max, ppGold);
-          }
-          buckets[id].prices.push(ppGold);
-          raw[id] = raw[id]||[];
-          raw[id].push({ priceInGold: priceGold, unitCount });
+      const process = data => {
+        const b={};
+        data.forEach(item=>{
+          const id=item.stuff.type_id, cnt=item.stuff.amount, px=item.price;
+          const gold=px*waxToGold;
+          const pp=gold/cnt;
+          if(!b[id]) b[id]={min:pp,max:pp,arr:[]};
+          else{ b[id].min=Math.min(b[id].min,pp);
+                 b[id].max=Math.max(b[id].max,pp); }
+          b[id].arr.push(pp);
         });
-        const stats = Object.fromEntries(
-          Object.entries(buckets).map(([id, {prices,min,max}]) => [
-            id, {
-              average: (prices.reduce((a,b)=>a+b,0)/prices.length).toFixed(2),
-              count: prices.length,
-              min: min.toFixed(2),
-              max: max.toFixed(2)
+        return Object.fromEntries(
+          Object.entries(b).map(([i,v])=>[
+            i,{
+              average:(v.arr.reduce((a,b)=>a+b,0)/v.arr.length).toFixed(2),
+              count:v.arr.length,
+              min:v.min.toFixed(2),
+              max:v.max.toFixed(2)
             }
           ])
         );
-        return { stats, raw };
       };
 
       const fetchData = async () => {
-        setIsLoading(true);
-        setErrorMsg(null);
-        await fetchWaxToGoldRate();
+        setLoading(true); setErr(null);
+        await fetchRate();
         try {
-          const rows = await fetchTableRows();
-          const { stats, raw } = processMarketData(rows);
-          // build history comparison for selectedTypeId
-          const lastPrices = loadLastPrices();
-          const pts = [];
-          if (selectedTypeId && lastPrices[selectedTypeId]) {
-            pts.push({ label: 'Last', value: parseFloat(lastPrices[selectedTypeId]) });
+          const rows = await fetchTable();
+          const out  = process(rows);
+          setPrices(out);
+          const now = new Date().toISOString();
+          setLastTs(now);
+          localStorage.setItem('lastData', JSON.stringify({ prices:out, timestamp:now }));
+          if(!sel) setSel(Object.keys(out)[0]);
+        } catch(e){
+          setErr(e.message);
+        } finally{ setLoading(false); }
+      };
+
+      const sorted = React.useMemo(()=>{
+        const e=Object.entries(prices);
+        return e.sort((a,b)=>{
+          let A,B;
+          const k=sortConfig.key;
+          if(k==='resource'){
+            A=RESOURCE_NAMES[a[0]]||''; B=RESOURCE_NAMES[b[0]]||'';
+          } else if(k==='typeId'){
+            A=+a[0]; B=+b[0];
+          } else {
+            A=parseFloat(a[1][k]); B=parseFloat(b[1][k]);
           }
-          const curVal = parseFloat(stats[selectedTypeId||Object.keys(stats)[0]].average);
-          pts.push({ label: 'Now', value: curVal });
-          setHistoryPoints(pts);
-
-          setPrices(stats);
-          setRawListings(raw);
-          saveLastPrices(Object.fromEntries(
-            Object.entries(stats).map(([id,st])=>[id, st.average])
-          ));
-          setLastUpdated(new Date());
-          if (!selectedTypeId) setSelectedTypeId(Object.keys(stats)[0]);
-        } catch (e) {
-          setErrorMsg(e.message);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      React.useEffect(() => { fetchData() }, []);
-
-      const handleSort = (key) => {
-        setSortConfig(prev => prev.key===key
-          ? {key, direction: prev.direction==='asc'?'desc':'asc'}
-          : {key, direction:'asc'}
-        );
-      };
-
-      const sortedPrices = React.useMemo(() => {
-        return Object.entries(prices).sort((a,b) => {
-          let av = sortConfig.key;
-          let x = av==='resource'
-            ? (RESOURCE_NAMES[a[0]]||'') 
-            : av==='typeId'
-              ? parseInt(a[0]) 
-              : parseFloat(a[1][av]);
-          let y = av==='resource'
-            ? (RESOURCE_NAMES[b[0]]||'') 
-            : av==='typeId'
-              ? parseInt(b[0]) 
-              : parseFloat(b[1][av]);
-          if (x<y) return sortConfig.direction==='asc'?-1:1;
-          if (x>y) return sortConfig.direction==='asc'?1:-1;
+          if(A<B) return sortConfig.direction==='asc'? -1:1;
+          if(A>B) return sortConfig.direction==='asc'?  1:-1;
           return 0;
         });
-      }, [prices, sortConfig]);
+      },[prices,sortConfig]);
+
+      const prevAvg = prevData.prices[sel]?.average;
 
       return (
         <div className="container mx-auto p-4">
           <h1 className="text-3xl font-bold mb-6 text-center">Prospectors Price Tracker</h1>
-          <div className="flex items-center mb-2">
-            <button onClick={fetchData} disabled={isLoading}
-              className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 mr-4">
-              {isLoading ? 'Refreshing…' : 'Refresh'}
-            </button>
-            {lastUpdated && (
-              <div className="text-gray-600">
-                Last refreshed: {lastUpdated.toLocaleString()}
-              </div>
-            )}
-          </div>
-          {errorMsg && <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">{errorMsg}</div>}
+          <button onClick={fetchData}
+                  disabled={loading}
+                  className="mb-2 px-4 py-2 bg-blue-600 text-white rounded">
+            {loading?'Refreshing…':'Refresh'}
+          </button>
+          {lastTs && (
+            <div className="mb-4 text-gray-600">
+              Last refreshed: {new Date(lastTs).toLocaleString()}
+            </div>
+          )}
+          {err && <div className="p-3 mb-4 bg-red-100 text-red-800">{err}</div>}
 
-          <section className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Current Market Prices</h2>
-            {Object.keys(prices).length
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Current Average Prices</h2>
+            {sorted.length>0
               ? <PriceTable
-                  sortedPrices={sortedPrices}
-                  rawListings={rawListings}
-                  onSort={handleSort}
+                  sortedPrices={sorted}
+                  onSort={k=>setSortConfig(s=>
+                    s.key===k?{key:k,direction:s.direction==='asc'?'desc':'asc'}:{key:k,direction:'asc'}
+                  )}
                   sortConfig={sortConfig}
+                  prevPrices={prevData.prices}
                 />
-              : <div>No data.</div>
+              : <div>No data available</div>
             }
-          </section>
+          </div>
 
-          <section>
-            <h2 className="text-xl font-semibold mb-4">Historical Comparison</h2>
-            <div className="mb-4">
-              <select
-                value={selectedTypeId||''}
-                onChange={e=>setSelectedTypeId(e.target.value)}
-                className="p-2 border rounded"
-              >
-                {Object.keys(prices).map(id=>(
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Historical & Refresh Trend</h2>
+            {sorted.length>0 && (
+              <select value={sel||''}
+                      onChange={e=>setSel(e.target.value)}
+                      className="mb-4 p-2 border rounded">
+                <option value="">Select Type</option>
+                {sorted.map(([id])=>(
                   <option key={id} value={id}>
                     {RESOURCE_NAMES[id]||'Unknown'} ({id})
                   </option>
                 ))}
               </select>
-            </div>
-            {historyPoints.length
-              ? <PriceChart historyPoints={historyPoints} />
-              : <div>No previous data to compare.</div>
-            }
-          </section>
+            )}
+
+            {sel && historicalData[sel] ? (
+              <PriceChart
+                hist={historicalData[sel]}
+                prev={prevAvg}
+                current={parseFloat(prices[sel].average)}
+                prevTs={prevData.timestamp}
+                currTs={lastTs}
+              />
+            ) : (
+              <div>No historical data for this Type</div>
+            )}
+          </div>
+
+          <footer className="mt-8 text-center text-gray-500">
+            <p>Powered by WAX Blockchain | Deployed on Vercel</p>
+          </footer>
         </div>
       );
     };
