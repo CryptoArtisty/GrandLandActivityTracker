@@ -37,7 +37,7 @@
       // …add more here.
     };
 
-    // Table with Δ and raw Amount & Health columns
+    // Table with Δ and aggregated Amount column (totalAmount)
     const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices }) => (
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white divide-y divide-gray-200">
@@ -45,18 +45,17 @@
             <tr>
               {[
                 'resource','typeId','average',
-                'amount','health','count','min','max','delta'
+                'totalAmount','count','min','max','delta'
               ].map(key=>{
                 const labels = {
-                  resource: 'Resource',
-                  typeId:   'Type ID',
-                  average:  'Avg Price',
-                  amount:   'Amount',
-                  health:   'Health',
-                  count:    'Listings',
-                  min:      'Min',
-                  max:      'Max',
-                  delta:    'Δ Price'
+                  resource:    'Resource',
+                  typeId:      'Type ID',
+                  average:     'Avg Price',
+                  totalAmount: 'Total Amount',
+                  count:       'Listings',
+                  min:         'Min',
+                  max:         'Max',
+                  delta:       'Δ Price'
                 };
                 return (
                   <th
@@ -79,11 +78,12 @@
                 : '—';
               return (
                 <tr key={typeId} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 whitespace-nowrap">{RESOURCE_NAMES[typeId] || 'Unknown'}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    {RESOURCE_NAMES[typeId] || 'Unknown'}
+                  </td>
                   <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{stats.lastAmount}</td>
-                  <td className="px-4 py-2 whitespace-nowrap">{stats.lastHealth}</td>
+                  <td className="px-4 py-2 whitespace-nowrap">{stats.totalAmount}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
                   <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
@@ -181,22 +181,18 @@
           const id     = item.stuff.type_id;
           const price  = parseFloat(item.price);
           const amount = parseFloat(item.stuff.amount);
-          const health = parseInt(item.stuff.health, 10);       // raw integer
 
           if (!buckets[id]) {
             buckets[id] = {
-              prices: [], 
-              min: price, 
-              max: price,
-              lastAmount: amount,
-              lastHealth: health
+              prices:     [],
+              min:        price,
+              max:        price,
+              totalAmount: amount
             };
           } else {
-            buckets[id].min = Math.min(buckets[id].min, price);
-            buckets[id].max = Math.max(buckets[id].max, price);
-            // overwrite with the most recent row’s amount & health
-            buckets[id].lastAmount = amount;
-            buckets[id].lastHealth = health;
+            buckets[id].min         = Math.min(buckets[id].min, price);
+            buckets[id].max         = Math.max(buckets[id].max, price);
+            buckets[id].totalAmount += amount;
           }
           buckets[id].prices.push(price);
         });
@@ -205,12 +201,11 @@
           Object.entries(buckets).map(([id, b]) => {
             const avg = b.prices.reduce((a, c) => a + c, 0) / b.prices.length;
             return [id, {
-              average:    +avg.toFixed(2),
-              lastAmount: b.lastAmount,
-              lastHealth: b.lastHealth,
-              count:      b.prices.length,
-              min:        +b.min.toFixed(2),
-              max:        +b.max.toFixed(2)
+              average:     +avg.toFixed(2),
+              totalAmount: b.totalAmount,
+              count:       b.prices.length,
+              min:         +b.min.toFixed(2),
+              max:         +b.max.toFixed(2)
             }];
           })
         );
