@@ -9,10 +9,6 @@
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
-  <!-- Wallet SDKs -->
-  <script src="https://cdn.jsdelivr.net/npm/@waxio/waxjs/dist/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/anchor-link@1.4.0/dist/anchor-link.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/anchor-link-browser-transport@1.1.0/dist/anchor-link-browser-transport.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -28,63 +24,7 @@
       50:'Mug Of Coffee', 55:'Donkey'
     };
 
-    // --- Donation setup ---
-    // WAX Cloud Wallet via waxjs
-    const wax = new waxjs.WaxJS({
-      rpcEndpoint: 'https://wax.greymass.com',
-      tryAutoLogin: false
-    });
-    const donateCloud = async (tokenSymbol) => {
-      await wax.login(); // pops Cloud Wallet
-      return wax.api.transact({
-        actions: [{
-          account: 'eosio.token',
-          name: 'transfer',
-          authorization: [{
-            actor: wax.userAccount,
-            permission: 'active',
-          }],
-          data: {
-            from:   wax.userAccount,
-            to:     'sklam.wam',
-            quantity: `0.0001 ${tokenSymbol}`,
-            memo:   'Thanks for the tip!'
-          }
-        }]
-      }, { blocksBehind: 3, expireSeconds: 1200 });
-    };
-
-    // Anchor Wallet via Anchor Link
-    const transport = new AnchorLinkBrowserTransport();
-    const anchorLink = new AnchorLink({
-      transport,
-      chains: [{
-        chainId: '1064487b3cd1e5a92f4ba06c94f0f551fa07ec6487c8bacb2d4b1b9b7b472f45',
-        nodeUrl: 'https://wax.greymass.com'
-      }]
-    });
-    const donateAnchor = async (tokenSymbol) => {
-      const identity = await anchorLink.login('donate-anchor');
-      return identity.transact({
-        actions: [{
-          account: 'eosio.token',
-          name: 'transfer',
-          authorization: [{
-            actor: identity.auth.actor,
-            permission: identity.auth.permission
-          }],
-          data: {
-            from:     identity.auth.actor,
-            to:       'sklam.wam',
-            quantity: `0.0001 ${tokenSymbol}`,
-            memo:     'Anchor tip'
-          }
-        }]
-      });
-    };
-    // --- end donation setup ---
-
-    // Table (unchanged except UI hook for expand)
+    // Table with Δ and dropdowns stays identical
     const PriceTable = ({
       sortedPrices, onSort, sortConfig, previousPrices,
       listingsMap, expandedIds, toggleExpand
@@ -94,7 +34,8 @@
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-2"></th>
-              {['resource','typeId','average','totalAmount','count','min','max','delta'].map(key => {
+              {['resource','typeId','average','totalAmount','count','min','max','delta']
+                .map(key => {
                   const labels = {
                     resource: 'Resource', typeId: 'Type ID',
                     average: 'Avg Price', totalAmount: 'Total Amount',
@@ -108,11 +49,10 @@
                       onClick={() => key !== 'delta' && onSort(key)}
                     >
                       {labels[key]}
-                      {sortConfig.key===key && (sortConfig.direction==='asc'?' ↑':' ↓')}
+                      {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                     </th>
                   );
-                })
-              }
+                })}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -124,7 +64,7 @@
                 <React.Fragment key={typeId}>
                   <tr className="hover:bg-gray-50">
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <button onClick={()=>toggleExpand(typeId)} className="focus:outline-none">
+                      <button onClick={() => toggleExpand(typeId)} className="focus:outline-none">
                         {isOpen ? '▼' : '▶'}
                       </button>
                     </td>
@@ -169,37 +109,63 @@
       </div>
     );
 
-    // Infographics with color palette (unchanged)
+    // Infographics with explicit color palette
     const DataViz = ({ sortedPrices }) => {
       const barRef = React.useRef(null);
       const pieRef = React.useRef(null);
+
+      // A simple palette — expand or tweak as you like
       const palette = [
-        '#FF6384','#36A2EB','#FFCE56','#4BC0C0',
-        '#9966FF','#FF9F40','#C9CBCF','#8EBF8F',
-        '#E7A1F2','#A1E7F2','#F2E7A1','#F2A1A1'
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+        '#9966FF', '#FF9F40', '#C9CBCF', '#8EBF8F',
+        '#E7A1F2', '#A1E7F2', '#F2E7A1', '#F2A1A1'
       ];
 
       React.useEffect(() => {
+        // Top-10 avg prices
         const top10 = sortedPrices
-          .slice().sort((a,b)=>b[1].average-a[1].average).slice(0,10);
-        const labels = top10.map(([id])=>RESOURCE_NAMES[id]||id);
-        const dataAvgs = top10.map(([_,s])=>s.average);
-        const barColors = palette.slice(0,labels.length);
+          .slice()
+          .sort((a,b) => b[1].average - a[1].average)
+          .slice(0,10);
+        const labels = top10.map(([id]) => RESOURCE_NAMES[id]||id);
+        const dataAvgs = top10.map(([_,stats]) => stats.average);
+        const barColors = palette.slice(0, labels.length);
 
         if (barRef.current) new Chart(barRef.current.getContext('2d'), {
           type: 'bar',
-          data: { labels, datasets:[{ label:'Avg Price', data:dataAvgs, backgroundColor:barColors, borderColor:barColors, borderWidth:1 }] },
-          options: { responsive:true, scales:{ y:{ beginAtZero:true } } }
+          data: {
+            labels,
+            datasets: [{
+              label: 'Avg Price',
+              data: dataAvgs,
+              backgroundColor: barColors,
+              borderColor: barColors,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
+          }
         });
 
-        const allLabels = sortedPrices.map(([id])=>RESOURCE_NAMES[id]||id);
-        const allCounts = sortedPrices.map(([_,s])=>s.count);
-        const pieColors = palette.slice(0,allLabels.length);
+        // Pie of listing counts
+        const allLabels = sortedPrices.map(([id]) => RESOURCE_NAMES[id]||id);
+        const allCounts = sortedPrices.map(([_,s]) => s.count);
+        const pieColors = palette.slice(0, allLabels.length);
 
         if (pieRef.current) new Chart(pieRef.current.getContext('2d'), {
           type: 'pie',
-          data: { labels:allLabels, datasets:[{ data:allCounts, backgroundColor:pieColors, borderColor:'#fff', borderWidth:1 }] },
-          options: { responsive:true }
+          data: {
+            labels: allLabels,
+            datasets: [{
+              data: allCounts,
+              backgroundColor: pieColors,
+              borderColor: '#ffffff',
+              borderWidth: 1
+            }]
+          },
+          options: { responsive: true }
         });
       }, [sortedPrices]);
 
@@ -217,15 +183,14 @@
       );
     };
 
-    // Main App
     const App = () => {
-      const [prices, setPrices]           = React.useState({});
+      const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
-      const [sortConfig, setSortConfig]   = React.useState({key:'typeId',direction:'asc'});
+      const [sortConfig, setSortConfig] = React.useState({key:'typeId',direction:'asc'});
       const [expandedIds, setExpandedIds] = React.useState(new Set());
-      const [isLoading, setIsLoading]     = React.useState(false);
-      const [errorMsg, setErrorMsg]       = React.useState(null);
+      const [isLoading, setIsLoading] = React.useState(false);
+      const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
 
       const RPCS = [
@@ -233,6 +198,12 @@
         'https://apiwax.cryptolions.io',
         'https://wax.cryptolions.io'
       ];
+
+      // Donation links
+      const WAX_CLOUD_LINK =
+        'https://all-access.wax.io/transfer/WAX/?contract=wax.token&recipient=sklam.wam&quantity=0.00000000+WAX&memo=Donation';
+      const PGL_LINK =
+        'https://all-access.wax.io/transfer/PGL/?contract=pgl.token&recipient=sklam.wam&quantity=0.00000000+PGL&memo=Donation';
 
       const fetchAllRows = async () => {
         let all = [], lower_bound = null;
@@ -242,7 +213,9 @@
             try {
               const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:1000 };
               if (lower_bound) body.lower_bound = lower_bound;
-              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, { headers:{ 'Content-Type':'application/json' } });
+              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, {
+                headers:{ 'Content-Type':'application/json' }
+              });
               chunk = r.data.rows; break;
             } catch {}
           }
@@ -316,12 +289,12 @@
         return arr.sort((a,b) => {
           let A,B;
           switch(sortConfig.key) {
-            case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
-            case 'typeId':   A=+a[0]; B=+b[0]; break;
-            default:         A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
+            case 'resource': A = RESOURCE_NAMES[a[0]]; B = RESOURCE_NAMES[b[0]]; break;
+            case 'typeId':   A = +a[0]; B = +b[0]; break;
+            default:         A = a[1][sortConfig.key]; B = b[1][sortConfig.key];
           }
-          if (A<B) return sortConfig.direction==='asc'? -1:1;
-          if (A>B) return sortConfig.direction==='asc'? 1:-1;
+          if (A < B) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (A > B) return sortConfig.direction === 'asc' ? 1 : -1;
           return 0;
         });
       }, [prices, sortConfig]);
@@ -352,37 +325,25 @@
               <h2 className="text-xl font-semibold">Latest Listings And Prices</h2>
               <div className="space-x-2">
                 <button
-                  onClick={()=>donateCloud('WAX')}
+                  onClick={() => window.open(WAX_CLOUD_LINK, '_blank')}
                   className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
                 >
-                  Tip 0.0001 WAXP (Cloud)
+                  Donate WAXP
                 </button>
                 <button
-                  onClick={()=>donateAnchor('WAX')}
-                  className="px-3 py-1 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm"
+                  onClick={() => window.open(PGL_LINK, '_blank')}
+                  className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
                 >
-                  Tip 0.0001 WAXP (Anchor)
-                </button>
-                <button
-                  onClick={()=>donateCloud('PGL')}
-                  className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
-                >
-                  Tip 0.0001 PGL (Cloud)
-                </button>
-                <button
-                  onClick={()=>donateAnchor('PGL')}
-                  className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
-                >
-                  Tip 0.0001 PGL (Anchor)
+                  Donate PGL
                 </button>
               </div>
             </div>
             {sorted.length
               ? <PriceTable
                   sortedPrices={sorted}
-                  onSort={k=>setSortConfig(prev=>({
+                  onSort={k => setSortConfig(prev => ({
                     key: k,
-                    direction: prev.key===k && prev.direction==='asc'? 'desc':'asc'
+                    direction: prev.key === k && prev.direction === 'asc' ? 'desc' : 'asc'
                   }))}
                   sortConfig={sortConfig}
                   previousPrices={previousPrices}
