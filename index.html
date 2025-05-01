@@ -183,6 +183,81 @@
       );
     };
 
+    const DonateButton = () => {
+      const handleDonate = (token) => {
+        const amount = token === 'WAX' ? '1.00000000' : '0.10000000';
+        const contract = token === 'WAX' ? 'eosio.token' : 'prospectorsw';
+        const symbol = token === 'WAX' ? 'WAX' : 'PGL';
+        
+        if (window.wax && window.wax.isAutoLoginAvailable) {
+          // WAX Cloud Wallet
+          window.wax.api.transact({
+            actions: [{
+              account: contract,
+              name: 'transfer',
+              authorization: [{
+                actor: window.wax.userAccount,
+                permission: 'active'
+              }],
+              data: {
+                from: window.wax.userAccount,
+                to: 'sklam.wam',
+                quantity: `${amount} ${symbol}`,
+                memo: 'Thanks for the Prospectors Price Tracker!'
+              }
+            }]
+          }, {
+            blocksBehind: 3,
+            expireSeconds: 1200
+          }).catch(err => console.error('Donation failed:', err));
+        } else if (window.anchorLink) {
+          // Anchor Wallet
+          const action = {
+            account: contract,
+            name: 'transfer',
+            authorization: [{
+              actor: window.anchorLink.auth.actor,
+              permission: window.anchorLink.auth.permission
+            }],
+            data: {
+              from: window.anchorLink.auth.actor,
+              to: 'sklam.wam',
+              quantity: `${amount} ${symbol}`,
+              memo: 'Thanks for the Prospectors Price Tracker!'
+            }
+          };
+          window.anchorLink.transact({ actions: [action] }, { broadcast: true })
+            .catch(err => console.error('Donation failed:', err));
+        } else {
+          // No wallet detected, open wallet install links
+          const waxWalletUrl = 'https://all-access.wax.io/';
+          const anchorUrl = 'https://greymass.com/en/anchor/';
+          if (confirm('No wallet detected. Would you like to install WAX Cloud Wallet?')) {
+            window.open(waxWalletUrl, '_blank');
+          } else if (confirm('Would you prefer to install Anchor Wallet instead?')) {
+            window.open(anchorUrl, '_blank');
+          }
+        }
+      };
+
+      return (
+        <div className="inline-block ml-4">
+          <button 
+            onClick={() => handleDonate('WAX')}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-2 rounded text-sm mr-2"
+          >
+            Donate WAX
+          </button>
+          <button 
+            onClick={() => handleDonate('PGL')}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded text-sm"
+          >
+            Donate PGL
+          </button>
+        </div>
+      );
+    };
+
     const App = () => {
       const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
@@ -198,12 +273,6 @@
         'https://apiwax.cryptolions.io',
         'https://wax.cryptolions.io'
       ];
-
-      // Donation links
-      const WAX_CLOUD_LINK =
-        'https://all-access.wax.io/transfer/WAX/?contract=wax.token&recipient=sklam.wam&quantity=0.00000000+WAX&memo=Donation';
-      const PGL_LINK =
-        'https://all-access.wax.io/transfer/PGL/?contract=pgl.token&recipient=sklam.wam&quantity=0.00000000+PGL&memo=Donation';
 
       const fetchAllRows = async () => {
         let all = [], lower_bound = null;
@@ -289,12 +358,12 @@
         return arr.sort((a,b) => {
           let A,B;
           switch(sortConfig.key) {
-            case 'resource': A = RESOURCE_NAMES[a[0]]; B = RESOURCE_NAMES[b[0]]; break;
-            case 'typeId':   A = +a[0]; B = +b[0]; break;
-            default:         A = a[1][sortConfig.key]; B = b[1][sortConfig.key];
+            case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
+            case 'typeId': A=+a[0]; B=+b[0]; break;
+            default: A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
           }
-          if (A < B) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (A > B) return sortConfig.direction === 'asc' ? 1 : -1;
+          if (A<B) return sortConfig.direction==='asc'? -1:1;
+          if (A>B) return sortConfig.direction==='asc'? 1:-1;
           return 0;
         });
       }, [prices, sortConfig]);
@@ -302,7 +371,7 @@
       const toggleExpand = id => {
         setExpandedIds(prev => {
           const s = new Set(prev);
-          s.has(id) ? s.delete(id) : s.add(id);
+          s.has(id)? s.delete(id): s.add(id);
           return s;
         });
       };
@@ -321,29 +390,16 @@
           {errorMsg && <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">{errorMsg}</div>}
 
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Latest Listings And Prices</h2>
-              <div className="space-x-2">
-                <button
-                  onClick={() => window.open(WAX_CLOUD_LINK, '_blank')}
-                  className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
-                >
-                  Donate WAXP
-                </button>
-                <button
-                  onClick={() => window.open(PGL_LINK, '_blank')}
-                  className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 text-sm"
-                >
-                  Donate PGL
-                </button>
-              </div>
+            <div className="flex items-center">
+              <h2 className="text-xl font-semibold mb-4">Latest Listings And Prices</h2>
+              <DonateButton />
             </div>
             {sorted.length
               ? <PriceTable
                   sortedPrices={sorted}
-                  onSort={k => setSortConfig(prev => ({
+                  onSort={k=>setSortConfig(prev=>({
                     key: k,
-                    direction: prev.key === k && prev.direction === 'asc' ? 'desc' : 'asc'
+                    direction: prev.key===k && prev.direction==='asc'? 'desc':'asc'
                   }))}
                   sortConfig={sortConfig}
                   previousPrices={previousPrices}
