@@ -16,13 +16,27 @@
 
   <script type="text/babel">
     const RESOURCE_NAMES = {
-      2: 'Wood', 3: 'Stone', 4: 'Coal', 5: 'Clay', 6: 'Iron Ore', 7: 'Stone Block',
-      8: 'Stone Plate', 9: 'Wood Beam', 10: 'Wood Board', 11: 'Wood Girder', 12: 'Clay Brick', 13: 'Clay Tile', 14:'Steel Block', 15:'Iron Plate',
-      16:'Nails', 17:'Shovel', 18:'Spade', 19:'Pickax', 20:'Hammer', 21:'Sledgehammer',
-      22:'Axe', 23:'Saw', 24:'Gold Pan', 25:'Cart', 26:'Cart Body', 28:'Wagon', 31:'Coffee Beans', 
-      32:'Chisel', 33:'Pan', 34:'Spoon', 35:'Basket', 36:'Kettle', 37:'Rake', 38:'Nail Puller', 39:'Plane Tool', 40:'Stone Rubble', 41:'Steel Plate', 42:'Iron Rail', 43:'Tie Cotter', 44:'Rail Tie', 45:'Trolley', 48:'Roasted Coffee', 49:'Mug',
-      50:'Mug Of Coffee', 52:'Moss', 53:'Garden Knife', 54:'Horse', 55:'Donkey'
+      2:'Wood',3:'Stone',4:'Coal',5:'Clay',6:'Iron Ore',7:'Stone Block',
+      8:'Stone Plate',9:'Wood Beam',10:'Wood Board',11:'Wood Girder',12:'Clay Brick',
+      13:'Clay Tile',14:'Steel Block',15:'Iron Plate',16:'Nails',17:'Shovel',
+      18:'Spade',19:'Pickax',20:'Hammer',21:'Sledgehammer',22:'Axe',23:'Saw',
+      24:'Gold Pan',25:'Cart',26:'Cart Body',28:'Wagon',31:'Coffee Beans',
+      32:'Chisel',33:'Pan',34:'Spoon',35:'Basket',36:'Kettle',37:'Rake',
+      38:'Nail Puller',39:'Plane Tool',40:'Stone Rubble',41:'Steel Plate',
+      42:'Iron Rail',43:'Tie Cotter',44:'Rail Tie',45:'Trolley',48:'Roasted Coffee',
+      49:'Mug',50:'Mug Of Coffee',52:'Moss',53:'Garden Knife',54:'Horse',55:'Donkey'
     };
+
+    const ChevronRight = () => (
+      <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    );
+    const ChevronDown = () => (
+      <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    );
 
     const PriceTable = ({
       sortedPrices, onSort, sortConfig, previousPrices,
@@ -36,34 +50,34 @@
         }));
       };
 
+      // columns now omit 'typeId'
+      const cols = ['resource','average','totalAmount','count','min','max','delta'];
+      const labels = {
+        resource:    'Resource',
+        average:     'Avg Price',
+        totalAmount: 'Total Amount',
+        count:       'Listings',
+        min:         'Min',
+        max:         'Max',
+        delta:       'Δ Price'
+      };
+
       return (
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-blue-100">
               <tr>
                 <th className="px-4 py-2"></th>
-                {['resource','average','totalAmount','count','min','max','delta']
-                  .map(key => {
-                    const labels = {
-                      resource:    'Resource',
-                      average:     'Avg Price',
-                      totalAmount: 'Total Amount',
-                      count:       'Listings',
-                      min:         'Min',
-                      max:         'Max',
-                      delta:       'Δ Price'
-                    };
-                    return (
-                      <th
-                        key={key}
-                        className="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider cursor-pointer select-none"
-                        onClick={() => key !== 'delta' && onSort(key)}
-                      >
-                        {labels[key]}
-                        {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                      </th>
-                    );
-                  })}
+                {cols.map(key => (
+                  <th
+                    key={key}
+                    className="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider cursor-pointer select-none"
+                    onClick={() => key !== 'delta' && onSort(key)}
+                  >
+                    {labels[key]}
+                    {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -74,7 +88,6 @@
                   : '—';
                 const isOpen = expandedIds.has(typeId);
 
-                // sort individual listings
                 const listings = listingsMap[typeId] || [];
                 const sortedListings = [...listings].sort((a, b) => {
                   const A = parseFloat(a[listingSort.key]);
@@ -84,23 +97,14 @@
 
                 return (
                   <React.Fragment key={typeId}>
-                    <tr
-                      className={
-                        ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                        hover:bg-blue-50
-                      }
-                    >
+                    <tr className={`${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-blue-50`}>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleExpand(typeId)}
-                          className="focus:outline-none text-blue-600 text-xl"
-                          title="Show/hide individual listings"
-                        >
-                          {isOpen ? '▲' : '▼'}
+                        <button onClick={() => toggleExpand(typeId)} className="focus:outline-none text-blue-600">
+                          {isOpen ? <ChevronDown/> : <ChevronRight/>}
                         </button>
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap font-medium text-blue-800">
-                        {RESOURCE_NAMES[typeId] || 'Unknown'}
+                        {RESOURCE_NAMES[typeId]||'Unknown'}
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{stats.totalAmount}</td>
@@ -108,14 +112,12 @@
                       <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        <span className={delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : ''}>
-                          {delta}
-                        </span>
+                        <span className={delta>0?'text-green-600':delta<0?'text-red-600':''}>{delta}</span>
                       </td>
                     </tr>
                     {isOpen && (
                       <tr className="bg-blue-50">
-                        <td colSpan="8" className="px-4 py-2">
+                        <td colSpan={cols.length + 1} className="px-4 py-2">
                           <table className="min-w-full text-sm">
                             <thead className="bg-blue-200">
                               <tr>
@@ -123,19 +125,19 @@
                                   className="px-2 py-1 text-left font-semibold cursor-pointer"
                                   onClick={() => toggleListingSort('price')}
                                 >
-                                  Price {listingSort.key === 'price' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
+                                  Price {listingSort.key==='price'? (listingSort.direction==='asc'?'↗':'↘'):''}
                                 </th>
                                 <th
                                   className="px-2 py-1 text-left font-semibold cursor-pointer"
                                   onClick={() => toggleListingSort('amount')}
                                 >
-                                  Amount {listingSort.key === 'amount' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
+                                  Amount {listingSort.key==='amount'? (listingSort.direction==='asc'?'↗':'↘'):''}
                                 </th>
                               </tr>
                             </thead>
                             <tbody>
-                              {sortedListings.map((item, i) => (
-                                <tr key={i} className={i % 2 === 0 ? 'bg-blue-50' : 'bg-blue-100'}>
+                              {sortedListings.map((item,i) => (
+                                <tr key={i} className={i%2===0?'bg-blue-50':'bg-blue-100'}>
                                   <td className="px-2 py-1">{item.price}</td>
                                   <td className="px-2 py-1">{item.amount}</td>
                                 </tr>
@@ -158,12 +160,11 @@
       const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
-      const [sortConfig, setSortConfig] = React.useState({key:'typeId',direction:'asc'});
+      const [sortConfig, setSortConfig] = React.useState({key:'resource',direction:'asc'});
       const [expandedIds, setExpandedIds] = React.useState(new Set());
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
-
       const [showAd, setShowAd] = React.useState(false);
       const adTimerRef = React.useRef(null);
 
@@ -179,104 +180,78 @@
       ];
 
       const fetchAllRows = async () => {
-        let all = [], lower_bound = null;
+        let all = [], lb = null;
         while (true) {
           let chunk = null;
           for (const base of RPCS) {
             try {
               const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:1000 };
-              if (lower_bound) body.lower_bound = lower_bound;
-              const r = await axios.post(\`\${base}/v1/chain/get_table_rows\`, body, {
+              if (lb) body.lower_bound = lb;
+              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, {
                 headers:{ 'Content-Type':'application/json' }
               });
-              chunk = r.data.rows;
-              break;
+              chunk = r.data.rows; break;
             } catch {}
           }
           if (!chunk) throw new Error('All RPCs failed');
           all = all.concat(chunk);
           if (chunk.length < 1000) break;
-          lower_bound = chunk[chunk.length - 1].id;
+          lb = chunk[chunk.length-1].id;
         }
         return all;
       };
 
       const process = rows => {
-        const buckets = {};
+        const b = {};
         rows.forEach(item => {
-          const id     = item.stuff.type_id;
-          const price  = parseFloat(item.price);
-          const amount = parseFloat(item.stuff.amount);
-          if (!buckets[id]) {
-            buckets[id] = { prices:[], min:price, max:price, totalAmount:amount };
-          } else {
-            buckets[id].min = Math.min(buckets[id].min, price);
-            buckets[id].max = Math.max(buckets[id].max, price);
-            buckets[id].totalAmount += amount;
+          const id = item.stuff.type_id;
+          const p  = parseFloat(item.price);
+          const a  = parseFloat(item.stuff.amount);
+          if (!b[id]) b[id]={ prices:[], min:p, max:p, totalAmount:a };
+          else {
+            b[id].min = Math.min(b[id].min,p);
+            b[id].max = Math.max(b[id].max,p);
+            b[id].totalAmount += a;
           }
-          buckets[id].prices.push(price);
+          b[id].prices.push(p);
         });
-        return Object.fromEntries(
-          Object.entries(buckets).map(([id,b]) => {
-            const avg = b.prices.reduce((a,c)=>a+c,0)/b.prices.length;
-            return [id,{
-              average:     +avg.toFixed(2),
-              totalAmount: b.totalAmount,
-              count:       b.prices.length,
-              min:         +b.min.toFixed(2),
-              max:         +b.max.toFixed(2)
-            }];
-          })
-        );
+        return Object.fromEntries(Object.entries(b).map(([id,o])=>{
+          const avg = o.prices.reduce((x,y)=>x+y,0)/o.prices.length;
+          return [id,{
+            average:+avg.toFixed(2),
+            totalAmount:o.totalAmount,
+            count:o.prices.length,
+            min:+o.min.toFixed(2),
+            max:+o.max.toFixed(2)
+          }];
+        }));
       };
 
       const buildListingsMap = rows => {
-        const map = {};
+        const m = {};
         rows.forEach(item => {
-          const id     = item.stuff.type_id;
-          const price  = parseFloat(item.price).toFixed(2);
-          const amount = parseFloat(item.stuff.amount);
-          if (!map[id]) map[id] = [];
-          map[id].push({ price, amount });
+          const id = item.stuff.type_id;
+          const p  = parseFloat(item.price).toFixed(2);
+          const a  = parseFloat(item.stuff.amount);
+          m[id] = m[id]||[];
+          m[id].push({ price:p, amount:a });
         });
-        return map;
+        return m;
       };
 
       const drawPieCharts = () => {
-        const labels    = Object.keys(prices).map(id => RESOURCE_NAMES[id] || id);
-        const quantities= Object.values(prices).map(s => s.totalAmount);
-        const counts    = Object.values(prices).map(s => s.count);
-
-        const palette = [
-          '#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6',
-          '#EC4899','#22D3EE','#F472B6','#6366F1','#E879F9',
-          '#34D399','#F87171','#4ADE80','#FB923C','#A78BFA',
-          '#F9A8D4'
-        ];
-
+        const labels     = Object.keys(prices).map(id=>RESOURCE_NAMES[id]||id);
+        const quantities = Object.values(prices).map(s=>s.totalAmount);
+        const counts     = Object.values(prices).map(s=>s.count);
+        const palette    = ['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#22D3EE','#F472B6','#6366F1','#E879F9','#34D399','#F87171','#4ADE80','#FB923C','#A78BFA','#F9A8D4'];
         if (quantityChart.current) quantityChart.current.destroy();
-        if (listingChart.current)  listingChart.current.destroy();
-
+        if (listingChart.current ) listingChart.current.destroy();
         quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
-          type: 'pie',
-          data: {
-            labels,
-            datasets:[{
-              data: quantities,
-              backgroundColor: palette.slice(0, labels.length)
-            }]
-          },
+          type:'pie', data:{ labels, datasets:[{ data:quantities, backgroundColor:palette.slice(0,labels.length) }] },
           options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
         });
-        listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
-          type: 'pie',
-          data: {
-            labels,
-            datasets:[{
-              data: counts,
-              backgroundColor: palette.slice(0, labels.length).reverse()
-            }]
-          },
+        listingChart.current  = new Chart(listingChartRef.current.getContext('2d'), {
+          type:'pie', data:{ labels, datasets:[{ data:counts,     backgroundColor:palette.slice(0,labels.length).reverse() }] },
           options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
         });
       };
@@ -290,7 +265,7 @@
           setPrices(proc);
           setListingsMap(buildListingsMap(rows));
           setLastUpdated(new Date());
-        } catch (e) {
+        } catch(e) {
           setErrorMsg(e.message);
         } finally {
           setIsLoading(false);
@@ -298,38 +273,34 @@
       };
 
       const handleRefresh = () => {
-        if (isLoading || showAd) return;
+        if (isLoading||showAd) return;
         setShowAd(true);
-        adTimerRef.current = setTimeout(() => {
+        adTimerRef.current = setTimeout(()=>{
           setShowAd(false);
           fetchData();
-        }, 3000);
+        },3000);
       };
 
       React.useEffect(fetchData, []);
-      React.useEffect(() => {
-        if (Object.keys(prices).length) drawPieCharts();
-      }, [prices]);
+      React.useEffect(()=>{ if(Object.keys(prices).length) drawPieCharts() },[prices]);
 
-      const sorted = React.useMemo(() => {
-        const arr = Object.entries(prices);
-        return arr.sort((a,b) => {
+      const sorted = React.useMemo(()=>{
+        return Object.entries(prices).sort((a,b)=>{
           let A,B;
-          switch(sortConfig.key) {
+          switch(sortConfig.key){
             case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
-            case 'typeId':   A=+a[0]; B=+b[0]; break;
             default:         A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
           }
-          if (A<B) return sortConfig.direction==='asc' ? -1 : 1;
-          if (A>B) return sortConfig.direction==='asc' ? 1 : -1;
+          if(A<B) return sortConfig.direction==='asc'?-1:1;
+          if(A>B) return sortConfig.direction==='asc'?1:-1;
           return 0;
         });
-      }, [prices, sortConfig]);
+      },[prices,sortConfig]);
 
       const toggleExpand = id => {
-        setExpandedIds(prev => {
-          const s = new Set(prev);
-          s.has(id)? s.delete(id) : s.add(id);
+        setExpandedIds(prev=>{
+          const s=new Set(prev);
+          s.has(id)?s.delete(id):s.add(id);
           return s;
         });
       };
@@ -342,21 +313,20 @@
                 <p className="text-lg font-bold">Advertisement</p>
                 <p>🔥 Get 50% off Prospectors Pro! 🔥</p>
                 <button
-                  onClick={() => {
+                  onClick={()=>{
                     clearTimeout(adTimerRef.current);
                     setShowAd(false);
                     fetchData();
                   }}
                   className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
-                  Skip Ad &amp; Refresh
+                  Skip Ad & Refresh
                 </button>
               </div>
             </div>
           )}
 
           <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">Prospectors Price Tracker</h1>
-
           <div className="flex justify-center space-x-4 mb-4">
             <button
               onClick={handleRefresh}
@@ -365,15 +335,9 @@
             >
               {isLoading ? 'Refreshing…' : 'Refresh'}
             </button>
-            {lastUpdated && (
-              <span className="self-center text-gray-600">
-                Last refreshed: {lastUpdated.toLocaleString()}
-              </span>
-            )}
+            {lastUpdated && (<span className="self-center text-gray-600">Last refreshed: {lastUpdated.toLocaleString()}</span>)}
           </div>
-          {errorMsg && (
-            <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>
-          )}
+          {errorMsg && <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>}
 
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-blue-700">Latest Listings And Prices</h2>
@@ -408,9 +372,7 @@
             </div>
           </section>
 
-          <footer className="mt-12 text-center text-gray-500">
-            Powered by WAX Blockchain | Deployed on Vercel
-          </footer>
+          <footer className="mt-12 text-center text-gray-500">Powered by WAX Blockchain | Deployed on Vercel</footer>
         </div>
       );
     };
