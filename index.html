@@ -9,11 +9,10 @@
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
-  <!-- WaxJS for Cloud Wallet -->
+  <!-- Wallet SDKs -->
   <script src="https://cdn.jsdelivr.net/npm/@waxio/waxjs/dist/index.min.js"></script>
-  <!-- Anchor Link for Anchor Wallet -->
-  <script src="https://cdn.jsdelivr.net/npm/anchor-link@2.6.0/dist/anchor-link.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/anchor-link-browser-transport@2.5.0/dist/anchor-link-browser-transport.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/anchor-link@1.4.0/dist/anchor-link.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/anchor-link-browser-transport@1.1.0/dist/anchor-link-browser-transport.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -21,90 +20,319 @@
 
   <script type="text/babel">
     const RESOURCE_NAMES = {
-      /* …same as before… */
-      2: 'Wood', 3: 'Stone', 4: 'Coal', /* etc */
-      55:'Donkey'
+      2: 'Wood', 3: 'Stone', 4: 'Coal', 5: 'Clay', 6: 'Iron Ore', 7: 'Stone Block',
+      8: 'Stone Plate', 9: 'Wood Beam', 11: 'Wood Girder', 14:'Steel Block', 15:'Iron Plate',
+      16:'Nails', 17:'Shovel', 18:'Spade', 19:'Pickax', 20:'Hammer', 21:'Sledgehammer',
+      22:'Axe', 23:'Saw', 24:'Gold pan', 25:'Cart', 28:'Wagon', 31:'Coffee Beans',
+      32:'Chisel', 40:'Stone Rubble', 43:'Tie Cotter', 44:'Rail Tie', 49:'Mug',
+      50:'Mug Of Coffee', 55:'Donkey'
     };
 
-    // …PriceTable, DataViz components unchanged…
+    // --- Donation setup ---
+    // WAX Cloud Wallet via waxjs
+    const wax = new waxjs.WaxJS({
+      rpcEndpoint: 'https://wax.greymass.com',
+      tryAutoLogin: false
+    });
+    const donateCloud = async (tokenSymbol) => {
+      await wax.login(); // pops Cloud Wallet
+      return wax.api.transact({
+        actions: [{
+          account: 'eosio.token',
+          name: 'transfer',
+          authorization: [{
+            actor: wax.userAccount,
+            permission: 'active',
+          }],
+          data: {
+            from:   wax.userAccount,
+            to:     'sklam.wam',
+            quantity: `0.0001 ${tokenSymbol}`,
+            memo:   'Thanks for the tip!'
+          }
+        }]
+      }, { blocksBehind: 3, expireSeconds: 1200 });
+    };
 
+    // Anchor Wallet via Anchor Link
+    const transport = new AnchorLinkBrowserTransport();
+    const anchorLink = new AnchorLink({
+      transport,
+      chains: [{
+        chainId: '1064487b3cd1e5a92f4ba06c94f0f551fa07ec6487c8bacb2d4b1b9b7b472f45',
+        nodeUrl: 'https://wax.greymass.com'
+      }]
+    });
+    const donateAnchor = async (tokenSymbol) => {
+      const identity = await anchorLink.login('donate-anchor');
+      return identity.transact({
+        actions: [{
+          account: 'eosio.token',
+          name: 'transfer',
+          authorization: [{
+            actor: identity.auth.actor,
+            permission: identity.auth.permission
+          }],
+          data: {
+            from:     identity.auth.actor,
+            to:       'sklam.wam',
+            quantity: `0.0001 ${tokenSymbol}`,
+            memo:     'Anchor tip'
+          }
+        }]
+      });
+    };
+    // --- end donation setup ---
+
+    // Table (unchanged except UI hook for expand)
+    const PriceTable = ({
+      sortedPrices, onSort, sortConfig, previousPrices,
+      listingsMap, expandedIds, toggleExpand
+    }) => (
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2"></th>
+              {['resource','typeId','average','totalAmount','count','min','max','delta'].map(key => {
+                  const labels = {
+                    resource: 'Resource', typeId: 'Type ID',
+                    average: 'Avg Price', totalAmount: 'Total Amount',
+                    count: 'Listings', min: 'Min', max: 'Max',
+                    delta: 'Δ Price'
+                  };
+                  return (
+                    <th
+                      key={key}
+                      className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => key !== 'delta' && onSort(key)}
+                    >
+                      {labels[key]}
+                      {sortConfig.key===key && (sortConfig.direction==='asc'?' ↑':' ↓')}
+                    </th>
+                  );
+                })
+              }
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {sortedPrices.map(([typeId, stats]) => {
+              const prev = previousPrices[typeId];
+              const delta = prev != null ? (stats.average - prev).toFixed(2) : '—';
+              const isOpen = expandedIds.has(typeId);
+              return (
+                <React.Fragment key={typeId}>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <button onClick={()=>toggleExpand(typeId)} className="focus:outline-none">
+                        {isOpen ? '▼' : '▶'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap">{RESOURCE_NAMES[typeId]||'Unknown'}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{stats.totalAmount}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <span className={delta>0?'text-green-600':delta<0?'text-red-600':''}>{delta}</span>
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-gray-100">
+                      <td colSpan="9" className="px-4 py-2">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr>
+                              <th className="px-2 py-1 text-left">Price</th>
+                              <th className="px-2 py-1 text-left">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {listingsMap[typeId].map((item, idx) => (
+                              <tr key={idx}>
+                                <td className="px-2 py-1">{item.price}</td>
+                                <td className="px-2 py-1">{item.amount}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+
+    // Infographics with color palette (unchanged)
+    const DataViz = ({ sortedPrices }) => {
+      const barRef = React.useRef(null);
+      const pieRef = React.useRef(null);
+      const palette = [
+        '#FF6384','#36A2EB','#FFCE56','#4BC0C0',
+        '#9966FF','#FF9F40','#C9CBCF','#8EBF8F',
+        '#E7A1F2','#A1E7F2','#F2E7A1','#F2A1A1'
+      ];
+
+      React.useEffect(() => {
+        const top10 = sortedPrices
+          .slice().sort((a,b)=>b[1].average-a[1].average).slice(0,10);
+        const labels = top10.map(([id])=>RESOURCE_NAMES[id]||id);
+        const dataAvgs = top10.map(([_,s])=>s.average);
+        const barColors = palette.slice(0,labels.length);
+
+        if (barRef.current) new Chart(barRef.current.getContext('2d'), {
+          type: 'bar',
+          data: { labels, datasets:[{ label:'Avg Price', data:dataAvgs, backgroundColor:barColors, borderColor:barColors, borderWidth:1 }] },
+          options: { responsive:true, scales:{ y:{ beginAtZero:true } } }
+        });
+
+        const allLabels = sortedPrices.map(([id])=>RESOURCE_NAMES[id]||id);
+        const allCounts = sortedPrices.map(([_,s])=>s.count);
+        const pieColors = palette.slice(0,allLabels.length);
+
+        if (pieRef.current) new Chart(pieRef.current.getContext('2d'), {
+          type: 'pie',
+          data: { labels:allLabels, datasets:[{ data:allCounts, backgroundColor:pieColors, borderColor:'#fff', borderWidth:1 }] },
+          options: { responsive:true }
+        });
+      }, [sortedPrices]);
+
+      return (
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Top 10 Avg Price</h3>
+            <canvas ref={barRef}></canvas>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Listings Distribution</h3>
+            <canvas ref={pieRef}></canvas>
+          </div>
+        </div>
+      );
+    };
+
+    // Main App
     const App = () => {
-      // …existing state/hooks…
-      const [prices, setPrices] = React.useState({});
+      const [prices, setPrices]           = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
-      const [sortConfig, setSortConfig] = React.useState({key:'typeId',direction:'asc'});
+      const [sortConfig, setSortConfig]   = React.useState({key:'typeId',direction:'asc'});
       const [expandedIds, setExpandedIds] = React.useState(new Set());
-      const [isLoading, setIsLoading] = React.useState(false);
-      const [errorMsg, setErrorMsg] = React.useState(null);
+      const [isLoading, setIsLoading]     = React.useState(false);
+      const [errorMsg, setErrorMsg]       = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
 
-      // initialize WaxJS and AnchorLink
-      const wax = React.useMemo(() => 
-        new waxjs.WaxJS({ rpcEndpoint: 'https://wax.greymass.com', tryAutoLogin: false })
-      , []);
-      const anchorLink = React.useMemo(() => {
-        const transport = new window.AnchorLinkBrowserTransport();
-        return new window.AnchorLink({ transport, chains: [{
-          chainId: '1064487b3cd1e4', // WAX Mainnet (truncated for brevity)
-          nodeUrl: 'https://wax.greymass.com'
-        }]});
-      }, []);
+      const RPCS = [
+        'https://wax.greymass.com',
+        'https://apiwax.cryptolions.io',
+        'https://wax.cryptolions.io'
+      ];
 
-      // donation via Wax Cloud Wallet
-      const donateWax = async () => {
+      const fetchAllRows = async () => {
+        let all = [], lower_bound = null;
+        while (true) {
+          let chunk = null;
+          for (const base of RPCS) {
+            try {
+              const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:1000 };
+              if (lower_bound) body.lower_bound = lower_bound;
+              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, { headers:{ 'Content-Type':'application/json' } });
+              chunk = r.data.rows; break;
+            } catch {}
+          }
+          if (!chunk) throw new Error('All RPCs failed');
+          all = all.concat(chunk);
+          if (chunk.length < 1000) break;
+          lower_bound = chunk[chunk.length-1].id;
+        }
+        return all;
+      };
+
+      const process = rows => {
+        const buckets = {};
+        rows.forEach(item => {
+          const id = item.stuff.type_id, price = parseFloat(item.price), amt = parseFloat(item.stuff.amount);
+          if (!buckets[id]) buckets[id] = { prices:[], min:price, max:price, totalAmount:amt };
+          else {
+            buckets[id].min = Math.min(buckets[id].min, price);
+            buckets[id].max = Math.max(buckets[id].max, price);
+            buckets[id].totalAmount += amt;
+          }
+          buckets[id].prices.push(price);
+        });
+        return Object.fromEntries(Object.entries(buckets).map(([id,b]) => {
+          const avg = b.prices.reduce((a,c)=>a+c,0)/b.prices.length;
+          return [id, {
+            average: +avg.toFixed(2),
+            totalAmount: b.totalAmount,
+            count: b.prices.length,
+            min: +b.min.toFixed(2),
+            max: +b.max.toFixed(2)
+          }];
+        }));
+      };
+
+      const buildListingsMap = rows => {
+        const m = {};
+        rows.forEach(item => {
+          const id = item.stuff.type_id, price = parseFloat(item.price).toFixed(2), amt = parseFloat(item.stuff.amount);
+          if (!m[id]) m[id] = [];
+          m[id].push({ price, amount:amt });
+        });
+        return m;
+      };
+
+      const fetchData = async () => {
+        setIsLoading(true);
+        setErrorMsg(null);
+        const stored = JSON.parse(localStorage.getItem('lastPrices')||'{}');
+        setPreviousPrices(stored);
         try {
-          const user = await wax.login(); 
-          const quantity = prompt('Amount to donate (e.g. 1.0000 WAX):', '1.0000 WAX');
-          if (!quantity) return;
-          await wax.api.transact({
-            actions: [{
-              account: 'eosio.token',
-              name: 'transfer',
-              authorization: [{ actor: user, permission: 'active' }],
-              data: {
-                from: user,
-                to: 'sklam.wam',
-                quantity,
-                memo: 'Donation via Cloud Wallet'
-              }
-            }]
-          }, { blocksBehind: 3, expireSeconds: 30 });
-          alert('❤️ Thank you for donating!');
+          const rows = await fetchAllRows();
+          const proc = process(rows);
+          setPrices(proc);
+          setListingsMap(buildListingsMap(rows));
+          localStorage.setItem('lastPrices', JSON.stringify(
+            Object.fromEntries(Object.entries(proc).map(([k,v])=>[k,v.average]))
+          ));
+          setLastUpdated(new Date());
         } catch (e) {
-          console.error(e);
-          alert('Donation failed or cancelled.');
+          setErrorMsg(e.message);
+        } finally {
+          setIsLoading(false);
         }
       };
 
-      // donation via Anchor Wallet
-      const donateAnchor = async () => {
-        try {
-          const session = await anchorLink.login('DonateWAXP');
-          const quantity = prompt('Amount to donate (e.g. 1.0000 WAX):', '1.0000 WAX');
-          if (!quantity) return;
-          await session.transact({
-            actions: [{
-              account: 'eosio.token',
-              name: 'transfer',
-              authorization: session.auth,
-              data: {
-                from: session.auth.actor,
-                to: 'sklam.wam',
-                quantity,
-                memo: 'Donation via Anchor'
-              }
-            }]
-          });
-          alert('🙏 Donation sent—thank you!');
-        } catch (e) {
-          console.error(e);
-          alert('Donation failed or cancelled.');
-        }
-      };
+      React.useEffect(fetchData, []);
 
-      // …existing fetchAllRows, process, buildListingsMap, fetchData, useEffect …
-      // …existing sorted, toggleExpand …
+      const sorted = React.useMemo(() => {
+        const arr = Object.entries(prices);
+        return arr.sort((a,b) => {
+          let A,B;
+          switch(sortConfig.key) {
+            case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
+            case 'typeId':   A=+a[0]; B=+b[0]; break;
+            default:         A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
+          }
+          if (A<B) return sortConfig.direction==='asc'? -1:1;
+          if (A>B) return sortConfig.direction==='asc'? 1:-1;
+          return 0;
+        });
+      }, [prices, sortConfig]);
+
+      const toggleExpand = id => {
+        setExpandedIds(prev => {
+          const s = new Set(prev);
+          s.has(id) ? s.delete(id) : s.add(id);
+          return s;
+        });
+      };
 
       return (
         <div className="container mx-auto p-4">
@@ -116,56 +344,62 @@
           >
             {isLoading ? 'Refreshing…' : 'Refresh'}
           </button>
-          {lastUpdated && (
-            <div className="mb-4 text-gray-600">
-              Last refreshed: {lastUpdated.toLocaleString()}
-            </div>
-          )}
-          {errorMsg && (
-            <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">
-              {errorMsg}
-            </div>
-          )}
+          {lastUpdated && <div className="mb-4 text-gray-600">Last refreshed: {lastUpdated.toLocaleString()}</div>}
+          {errorMsg && <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">{errorMsg}</div>}
 
-          {/* ———————————————— */}
-          <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Latest Listings And Prices</h2>
-            <div className="space-x-2">
-              <button
-                onClick={donateWax}
-                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-              >
-                Donate via Cloud Wallet
-              </button>
-              <button
-                onClick={donateAnchor}
-                className="px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600"
-              >
-                Donate via Anchor
-              </button>
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Latest Listings And Prices</h2>
+              <div className="space-x-2">
+                <button
+                  onClick={()=>donateCloud('WAX')}
+                  className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                >
+                  Tip 0.0001 WAXP (Cloud)
+                </button>
+                <button
+                  onClick={()=>donateAnchor('WAX')}
+                  className="px-3 py-1 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm"
+                >
+                  Tip 0.0001 WAXP (Anchor)
+                </button>
+                <button
+                  onClick={()=>donateCloud('PGL')}
+                  className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+                >
+                  Tip 0.0001 PGL (Cloud)
+                </button>
+                <button
+                  onClick={()=>donateAnchor('PGL')}
+                  className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
+                >
+                  Tip 0.0001 PGL (Anchor)
+                </button>
+              </div>
             </div>
+            {sorted.length
+              ? <PriceTable
+                  sortedPrices={sorted}
+                  onSort={k=>setSortConfig(prev=>({
+                    key: k,
+                    direction: prev.key===k && prev.direction==='asc'? 'desc':'asc'
+                  }))}
+                  sortConfig={sortConfig}
+                  previousPrices={previousPrices}
+                  listingsMap={listingsMap}
+                  expandedIds={expandedIds}
+                  toggleExpand={toggleExpand}
+                />
+              : <div>No data</div>
+            }
           </div>
-          {sorted.length ? (
-            <PriceTable
-              sortedPrices={sorted}
-              onSort={k=>setSortConfig(prev=>({
-                key: k,
-                direction: prev.key===k && prev.direction==='asc' ? 'desc' : 'asc'
-              }))}
-              sortConfig={sortConfig}
-              previousPrices={previousPrices}
-              listingsMap={listingsMap}
-              expandedIds={expandedIds}
-              toggleExpand={toggleExpand}
-            />
-          ) : (
-            <div>No data</div>
-          )}
 
-          {/* ———————————————— */}
           <div>
             <h2 className="text-xl font-semibold mb-4">Data Visualizations</h2>
-            {sorted.length ? <DataViz sortedPrices={sorted} /> : <div>No data to visualize</div>}
+            {sorted.length
+              ? <DataViz sortedPrices={sorted} />
+              : <div>No data to visualize</div>
+            }
           </div>
 
           <footer className="mt-8 text-center text-gray-500">
