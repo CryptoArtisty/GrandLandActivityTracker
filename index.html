@@ -166,6 +166,9 @@
       const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
 
+      const [showAd, setShowAd] = React.useState(false);
+      const adTimerRef = React.useRef(null);
+
       const quantityChartRef = React.useRef(null);
       const listingChartRef  = React.useRef(null);
       const quantityChart    = React.useRef(null);
@@ -242,22 +245,40 @@
       };
 
       const drawPieCharts = () => {
-        const labels = Object.keys(prices).map(id => RESOURCE_NAMES[id] || id);
-        const quantities = Object.values(prices).map(s => s.totalAmount);
-        const counts     = Object.values(prices).map(s => s.count);
+        const labels    = Object.keys(prices).map(id => RESOURCE_NAMES[id] || id);
+        const quantities= Object.values(prices).map(s => s.totalAmount);
+        const counts    = Object.values(prices).map(s => s.count);
 
-        // destroy old if exists
+        const palette = [
+          '#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6',
+          '#EC4899','#22D3EE','#F472B6','#6366F1','#E879F9',
+          '#34D399','#F87171','#4ADE80','#FB923C','#A78BFA',
+          '#F9A8D4'
+        ];
+
         if (quantityChart.current) quantityChart.current.destroy();
         if (listingChart.current)  listingChart.current.destroy();
 
         quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
           type: 'pie',
-          data: { labels, datasets:[{ data: quantities }] },
+          data: {
+            labels,
+            datasets:[{
+              data: quantities,
+              backgroundColor: palette.slice(0, labels.length)
+            }]
+          },
           options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
         });
         listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
           type: 'pie',
-          data: { labels, datasets:[{ data: counts }] },
+          data: {
+            labels,
+            datasets:[{
+              data: counts,
+              backgroundColor: palette.slice(0, labels.length).reverse()
+            }]
+          },
           options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
         });
       };
@@ -278,6 +299,15 @@
         }
       };
 
+      const handleRefresh = () => {
+        if (isLoading || showAd) return;
+        setShowAd(true);
+        adTimerRef.current = setTimeout(() => {
+          setShowAd(false);
+          fetchData();
+        }, 3000);
+      };
+
       React.useEffect(fetchData, []);
       React.useEffect(() => {
         if (Object.keys(prices).length) drawPieCharts();
@@ -288,12 +318,12 @@
         return arr.sort((a,b) => {
           let A,B;
           switch(sortConfig.key) {
-            case 'resource':    A=RESOURCE_NAMES[a[0]];B=RESOURCE_NAMES[b[0]];break;
-            case 'typeId':      A=+a[0];B=+b[0];break;
-            default:            A=a[1][sortConfig.key];B=b[1][sortConfig.key];
+            case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
+            case 'typeId':   A=+a[0]; B=+b[0]; break;
+            default:         A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
           }
-          if (A<B) return sortConfig.direction==='asc'?-1:1;
-          if (A>B) return sortConfig.direction==='asc'?1:-1;
+          if (A<B) return sortConfig.direction==='asc' ? -1 : 1;
+          if (A>B) return sortConfig.direction==='asc' ? 1 : -1;
           return 0;
         });
       }, [prices, sortConfig]);
@@ -301,17 +331,37 @@
       const toggleExpand = id => {
         setExpandedIds(prev => {
           const s = new Set(prev);
-          s.has(id)?s.delete(id):s.add(id);
+          s.has(id)? s.delete(id) : s.add(id);
           return s;
         });
       };
 
       return (
-        <div className="container mx-auto p-6">
+        <div className="container mx-auto p-6 relative">
+          {showAd && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-yellow-200 p-6 rounded-lg shadow-lg text-center space-y-4">
+                <p className="text-lg font-bold">Advertisement</p>
+                <p>🔥 Get 50% off Prospectors Pro! 🔥</p>
+                <button
+                  onClick={() => {
+                    clearTimeout(adTimerRef.current);
+                    setShowAd(false);
+                    fetchData();
+                  }}
+                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Skip Ad &amp; Refresh
+                </button>
+              </div>
+            </div>
+          )}
+
           <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">Prospectors Price Tracker</h1>
+
           <div className="flex justify-center space-x-4 mb-4">
             <button
-              onClick={fetchData}
+              onClick={handleRefresh}
               disabled={isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
             >
