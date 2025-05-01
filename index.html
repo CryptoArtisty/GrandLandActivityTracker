@@ -25,105 +25,135 @@
       // …add more here.
     };
 
-    // Table with Δ and aggregated Amount column (totalAmount),
-    // plus a dropdown toggle to reveal individual listings.
+    // Enhanced PriceTable with listing-sort state
     const PriceTable = ({
       sortedPrices, onSort, sortConfig, previousPrices,
       listingsMap, expandedIds, toggleExpand
-    }) => (
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2"></th>
-              {['resource','typeId','average','totalAmount','count','min','max','delta']
-                .map(key => {
-                  const labels = {
-                    resource:    'Resource',
-                    typeId:      'Type ID',
-                    average:     'Avg Price',
-                    totalAmount: 'Total Amount',
-                    count:       'Listings',
-                    min:         'Min',
-                    max:         'Max',
-                    delta:       'Δ Price'
-                  };
-                  return (
-                    <th
-                      key={key}
-                      className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => key !== 'delta' && onSort(key)}
-                    >
-                      {labels[key]}
-                      {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                    </th>
-                  );
-                })}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sortedPrices.map(([typeId, stats]) => {
-              const prev = previousPrices[typeId];
-              const delta = prev != null
-                ? (stats.average - prev).toFixed(2)
-                : '—';
-              const isOpen = expandedIds.has(typeId);
-              return (
-                <React.Fragment key={typeId}>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      <button
-                        onClick={() => toggleExpand(typeId)}
-                        className="focus:outline-none"
-                        title="Show/hide individual listings"
+    }) => {
+      // local state for sorting individual listings
+      const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
+
+      // helper to toggle asc/desc
+      const toggleListingSort = (key) => {
+        setListingSort(prev => ({
+          key,
+          direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
+      };
+
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2"></th>
+                {['resource','typeId','average','totalAmount','count','min','max','delta']
+                  .map(key => {
+                    const labels = {
+                      resource:    'Resource',
+                      typeId:      'Type ID',
+                      average:     'Avg Price',
+                      totalAmount: 'Total Amount',
+                      count:       'Listings',
+                      min:         'Min',
+                      max:         'Max',
+                      delta:       'Δ Price'
+                    };
+                    return (
+                      <th
+                        key={key}
+                        className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        onClick={() => key !== 'delta' && onSort(key)}
                       >
-                        {isOpen ? '▼' : '▶'}
-                      </button>
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      {RESOURCE_NAMES[typeId] || 'Unknown'}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{stats.totalAmount}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      <span className={delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : ''}>
-                        {delta}
-                      </span>
-                    </td>
-                  </tr>
-                  {isOpen && (
-                    <tr className="bg-gray-100">
-                      <td colSpan="9" className="px-4 py-2">
-                        <table className="min-w-full text-sm">
-                          <thead>
-                            <tr>
-                              <th className="px-2 py-1 text-left">Price</th>
-                              <th className="px-2 py-1 text-left">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {listingsMap[typeId].map((item, idx) => (
-                              <tr key={idx}>
-                                <td className="px-2 py-1">{item.price}</td>
-                                <td className="px-2 py-1">{item.amount}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        {labels[key]}
+                        {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                      </th>
+                    );
+                  })}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {sortedPrices.map(([typeId, stats]) => {
+                const prev = previousPrices[typeId];
+                const delta = prev != null
+                  ? (stats.average - prev).toFixed(2)
+                  : '—';
+                const isOpen = expandedIds.has(typeId);
+                // prepare sorted listing rows
+                const listings = listingsMap[typeId] || [];
+                const sortedListings = [...listings].sort((a, b) => {
+                  const A = parseFloat(a[listingSort.key]);
+                  const B = parseFloat(b[listingSort.key]);
+                  return listingSort.direction === 'asc' ? A - B : B - A;
+                });
+
+                return (
+                  <React.Fragment key={typeId}>
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <button
+                          onClick={() => toggleExpand(typeId)}
+                          className="focus:outline-none"
+                          title="Show/hide individual listings"
+                        >
+                          {isOpen ? '▼' : '▶'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {RESOURCE_NAMES[typeId] || 'Unknown'}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.totalAmount}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <span className={delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : ''}>
+                          {delta}
+                        </span>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
+                    {isOpen && (
+                      <tr className="bg-gray-100">
+                        <td colSpan="9" className="px-4 py-2">
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr>
+                                <th
+                                  className="px-2 py-1 text-left cursor-pointer"
+                                  onClick={() => toggleListingSort('price')}
+                                >
+                                  Price {listingSort.key === 'price' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
+                                </th>
+                                <th
+                                  className="px-2 py-1 text-left cursor-pointer"
+                                  onClick={() => toggleListingSort('amount')}
+                                >
+                                  Amount {listingSort.key === 'amount' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sortedListings.map((item, idx) => (
+                                <tr key={idx}>
+                                  <td className="px-2 py-1">{item.price}</td>
+                                  <td className="px-2 py-1">{item.amount}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    };
 
     // Chart overlays last-refresh flat line
     const PriceChart = ({ historicalData, previousPrice }) => {
@@ -334,7 +364,7 @@
             <div className="mb-4 text-gray-600">
               Last refreshed: {lastUpdated.toLocaleString()}
             </div>
-          )}
+          )}  
           {errorMsg && (
             <div className="bg-red-100 text-red-800 p-3 mb-6 rounded">
               {errorMsg}
