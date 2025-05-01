@@ -22,10 +22,9 @@
       22:'Axe', 23:'Saw', 24:'Gold pan', 25:'Cart', 28:'Wagon', 31:'Coffee Beans',
       32:'Chisel', 40:'Stone Rubble', 43:'Tie Cotter', 44:'Rail Tie', 49:'Mug',
       50:'Mug Of Coffee', 55:'Donkey'
-      // …add more here.
     };
 
-    // Table with Δ and aggregated Amount column, plus dropdown for listings
+    // Table with Δ and dropdowns stays identical
     const PriceTable = ({
       sortedPrices, onSort, sortConfig, previousPrices,
       listingsMap, expandedIds, toggleExpand
@@ -38,10 +37,10 @@
               {['resource','typeId','average','totalAmount','count','min','max','delta']
                 .map(key => {
                   const labels = {
-                    resource:    'Resource', typeId: 'Type ID',
-                    average:     'Avg Price', totalAmount: 'Total Amount',
-                    count:       'Listings', min: 'Min', max: 'Max',
-                    delta:       'Δ Price'
+                    resource: 'Resource', typeId: 'Type ID',
+                    average: 'Avg Price', totalAmount: 'Total Amount',
+                    count: 'Listings', min: 'Min', max: 'Max',
+                    delta: 'Δ Price'
                   };
                   return (
                     <th
@@ -110,33 +109,62 @@
       </div>
     );
 
-    // New infographics component
+    // Infographics with explicit color palette
     const DataViz = ({ sortedPrices }) => {
       const barRef = React.useRef(null);
       const pieRef = React.useRef(null);
 
+      // A simple palette — expand or tweak as you like
+      const palette = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+        '#9966FF', '#FF9F40', '#C9CBCF', '#8EBF8F',
+        '#E7A1F2', '#A1E7F2', '#F2E7A1', '#F2A1A1'
+      ];
+
       React.useEffect(() => {
-        // Prepare top10 by avg price
+        // Top-10 avg prices
         const top10 = sortedPrices
           .slice()
           .sort((a,b) => b[1].average - a[1].average)
           .slice(0,10);
         const labels = top10.map(([id]) => RESOURCE_NAMES[id]||id);
         const dataAvgs = top10.map(([_,stats]) => stats.average);
+        const barColors = palette.slice(0, labels.length);
 
-        // Bar chart
         if (barRef.current) new Chart(barRef.current.getContext('2d'), {
           type: 'bar',
-          data: { labels, datasets: [{ label: 'Avg Price', data: dataAvgs, fill: false, tension: 0.1 }] },
-          options: { responsive: true, scales: { y: { beginAtZero: true } } }
+          data: {
+            labels,
+            datasets: [{
+              label: 'Avg Price',
+              data: dataAvgs,
+              backgroundColor: barColors,
+              borderColor: barColors,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
+          }
         });
 
-        // Pie chart of listing counts
+        // Pie of listing counts
         const allLabels = sortedPrices.map(([id]) => RESOURCE_NAMES[id]||id);
         const allCounts = sortedPrices.map(([_,s]) => s.count);
+        const pieColors = palette.slice(0, allLabels.length);
+
         if (pieRef.current) new Chart(pieRef.current.getContext('2d'), {
           type: 'pie',
-          data: { labels: allLabels, datasets: [{ data: allCounts }] },
+          data: {
+            labels: allLabels,
+            datasets: [{
+              data: allCounts,
+              backgroundColor: pieColors,
+              borderColor: '#ffffff',
+              borderWidth: 1
+            }]
+          },
           options: { responsive: true }
         });
       }, [sortedPrices]);
@@ -171,7 +199,6 @@
         'https://wax.cryptolions.io'
       ];
 
-      // paginate to fetch all rows
       const fetchAllRows = async () => {
         let all = [], lower_bound = null;
         while (true) {
@@ -180,7 +207,9 @@
             try {
               const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:1000 };
               if (lower_bound) body.lower_bound = lower_bound;
-              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, { headers:{ 'Content-Type':'application/json' } });
+              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, {
+                headers:{ 'Content-Type':'application/json' }
+              });
               chunk = r.data.rows; break;
             } catch {}
           }
@@ -206,18 +235,24 @@
         });
         return Object.fromEntries(Object.entries(buckets).map(([id,b]) => {
           const avg = b.prices.reduce((a,c)=>a+c,0)/b.prices.length;
-          return [id,{ average:+avg.toFixed(2), totalAmount:b.totalAmount, count:b.prices.length, min:+b.min.toFixed(2), max:+b.max.toFixed(2) }];
+          return [id, {
+            average: +avg.toFixed(2),
+            totalAmount: b.totalAmount,
+            count: b.prices.length,
+            min: +b.min.toFixed(2),
+            max: +b.max.toFixed(2)
+          }];
         }));
       };
 
       const buildListingsMap = rows => {
-        const map = {};
+        const m = {};
         rows.forEach(item => {
           const id = item.stuff.type_id, price = parseFloat(item.price).toFixed(2), amt = parseFloat(item.stuff.amount);
-          if (!map[id]) map[id] = [];
-          map[id].push({ price, amount:amt });
+          if (!m[id]) m[id] = [];
+          m[id].push({ price, amount:amt });
         });
-        return map;
+        return m;
       };
 
       const fetchData = async () => {
@@ -230,9 +265,9 @@
           const proc = process(rows);
           setPrices(proc);
           setListingsMap(buildListingsMap(rows));
-          localStorage.setItem('lastPrices', JSON.stringify(Object.fromEntries(
-            Object.entries(proc).map(([k,v])=>[k,v.average])
-          )));
+          localStorage.setItem('lastPrices', JSON.stringify(
+            Object.fromEntries(Object.entries(proc).map(([k,v])=>[k,v.average]))
+          ));
           setLastUpdated(new Date());
         } catch (e) {
           setErrorMsg(e.message);
@@ -285,8 +320,8 @@
               ? <PriceTable
                   sortedPrices={sorted}
                   onSort={k=>setSortConfig(prev=>({
-                    key:k,
-                    direction: prev.key===k&&prev.direction==='asc'? 'desc':'asc'
+                    key: k,
+                    direction: prev.key===k && prev.direction==='asc'? 'desc':'asc'
                   }))}
                   sortConfig={sortConfig}
                   previousPrices={previousPrices}
