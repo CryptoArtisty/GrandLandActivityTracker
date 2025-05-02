@@ -22,7 +22,7 @@
       18:'Spade',19:'Pickax',20:'Hammer',21:'Sledgehammer',22:'Axe',23:'Saw',
       24:'Gold Pan',25:'Cart',26:'Cart Body',28:'Wagon',31:'Coffee Beans',
       32:'Chisel',33:'Pan',34:'Spoon',35:'Basket',36:'Kettle',37:'Rake',
-      38:'Nail Puller',39:'Plane Tool',40:'Stone Rubble',41:'Steel Plate',
+      38:'N nail Puller',39:'Plane Tool',40:'Stone Rubble',41:'Steel Plate',
       42:'Iron Rail',43:'Tie Cotter',44:'Rail Tie',45:'Trolley',48:'Roasted Coffee',
       49:'Mug',50:'Mug Of Coffee',52:'Moss',53:'Garden Knife',54:'Horse',55:'Donkey'
     };
@@ -38,6 +38,7 @@
       </svg>
     );
 
+    // Renders the main market table with expandable listings
     const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
       const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
       const toggleListingSort = key => {
@@ -45,6 +46,7 @@
       };
       const cols = ['resource','average','totalAmount','count','min','max','delta'];
       const labels = { resource:'Resource', average:'Avg Price', totalAmount:'Total Amount', count:'Listings', min:'Min', max:'Max', delta:'Δ Price' };
+
       return (
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
@@ -137,6 +139,7 @@
       );
     };
 
+    // Renders auctions table with raw end_time
     const AuctionTable = ({ auctions }) => (
       <div className="overflow-x-auto bg-white rounded-lg shadow">
         <table className="min-w-full divide-y divide-gray-200">
@@ -164,59 +167,120 @@
       </div>
     );
 
+    // Renders any raw table for loc/order/railorder/worker
+    const RawTable = ({ rows }) => {
+      if (!rows.length) return <div className="text-gray-500">No data available.</div>;
+      const cols = Object.keys(rows[0]);
+      return (
+        <div className="overflow-x-auto bg-white rounded-lg shadow">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                {cols.map(c => (
+                  <th key={c} className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((r, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  {cols.map(c => (
+                    <td key={c} className="px-3 py-1 text-sm whitespace-nowrap">{String(r[c])}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    };
+
     const App = () => {
+      // States for each tab’s data
       const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
       const [auctions, setAuctions] = React.useState([]);
+      const [locRows, setLocRows] = React.useState([]);
+      const [orderRows, setOrderRows] = React.useState([]);
+      const [railorderRows, setRailorderRows] = React.useState([]);
+      const [workerRows, setWorkerRows] = React.useState([]);
+
+      // Sorting, expansion, tab selection
       const [sortConfig, setSortConfig] = React.useState({key:'resource',direction:'asc'});
       const [expandedIds, setExpandedIds] = React.useState(new Set());
       const [activeTab, setActiveTab] = React.useState('market');
+
+      // Ad + loading + errors
+      const [showAd, setShowAd] = React.useState(false);
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
-      const [lastUpdated, setLastUpdated] = React.useState(null);
-      const [showAd, setShowAd] = React.useState(false);
+
+      // Per-tab last-updated timestamps
+      const [lastUpdated, setLastUpdated] = React.useState({});
+
       const adTimerRef = React.useRef(null);
+
+      // Chart refs
       const quantityChartRef = React.useRef(null);
       const listingChartRef = React.useRef(null);
       const quantityChart = React.useRef(null);
       const listingChart = React.useRef(null);
 
-      const RPCS = ['https://wax.greymass.com','https://apiwax.cryptolions.io','https://wax.cryptolions.io'];
+      const RPCS = [
+        'https://wax.greymass.com',
+        'https://apiwax.cryptolions.io',
+        'https://wax.cryptolions.io'
+      ];
 
+      // Generic paginated fetch
       const fetchAllRows = async (tableName) => {
         let all = [], lb = null;
-        while(true) {
+        while (true) {
           let chunk = null;
-          for(const base of RPCS) {
+          for (const base of RPCS) {
             try {
-              const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:tableName, limit:1000 };
-              if(lb) body.lower_bound = lb;
-              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, { headers:{ 'Content-Type':'application/json' }});
-              chunk = r.data.rows; break;
+              const body = { json: true, code: 'prospectorsn', scope: 'prospectorsn', table: tableName, limit: 1000 };
+              if (lb) body.lower_bound = lb;
+              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, {
+                headers: { 'Content-Type': 'application/json' }
+              });
+              chunk = r.data.rows;
+              break;
             } catch {}
           }
-          if(!chunk) throw new Error('All RPCs failed');
+          if (!chunk) throw new Error('All RPCs failed');
           all = all.concat(chunk);
-          if(chunk.length<1000) break;
-          lb = chunk[chunk.length-1].id;
+          if (chunk.length < 1000) break;
+          lb = chunk[chunk.length - 1].id;
         }
         return all;
       };
 
+      // Market data processing
       const processMarket = rows => {
         const b = {};
         rows.forEach(item => {
           const id = item.stuff.type_id;
           const p = parseFloat(item.price);
           const a = parseFloat(item.stuff.amount);
-          if(!b[id]) b[id]={ prices:[], min:p, max:p, totalAmount:a };
-          else { b[id].min=Math.min(b[id].min,p); b[id].max=Math.max(b[id].max,p); b[id].totalAmount += a; }
+          if (!b[id]) b[id] = { prices: [], min: p, max: p, totalAmount: a };
+          else {
+            b[id].min = Math.min(b[id].min, p);
+            b[id].max = Math.max(b[id].max, p);
+            b[id].totalAmount += a;
+          }
           b[id].prices.push(p);
         });
         return Object.fromEntries(Object.entries(b).map(([id,o])=>{
           const avg = o.prices.reduce((x,y)=>x+y,0)/o.prices.length;
-          return [id,{ average:+avg.toFixed(2), totalAmount:o.totalAmount, count:o.prices.length, min:+o.min.toFixed(2), max:+o.max.toFixed(2) }];
+          return [id,{
+            average: +avg.toFixed(2),
+            totalAmount: o.totalAmount,
+            count: o.prices.length,
+            min: +o.min.toFixed(2),
+            max: +o.max.toFixed(2)
+          }];
         }));
       };
 
@@ -226,89 +290,174 @@
           const id = item.stuff.type_id;
           const p = parseFloat(item.price).toFixed(2);
           const a = parseFloat(item.stuff.amount);
-          m[id] = m[id]||[]; m[id].push({ price:p, amount:a });
+          m[id] = m[id] || [];
+          m[id].push({ price: p, amount: a });
         });
         return m;
       };
 
-      const processAuctions = rows => {
-        return rows.map(item => ({
-          loc_id: item.loc_id,
-          owner: item.owner,
-          price: parseFloat(item.price).toFixed(2),
-          end_time: item.end_time,
-          bid_user: item.bid_user || '-'
-        }));
-      };
-
+      // Draw pie charts for resource breakdown
       const drawPieCharts = () => {
-        const labels = Object.keys(prices).map(id=>RESOURCE_NAMES[id]||id);
-        const quantities = Object.values(prices).map(s=>s.totalAmount);
-        const counts = Object.values(prices).map(s=>s.count);
+        const labels = Object.keys(prices).map(id => RESOURCE_NAMES[id] || id);
+        const quantities = Object.values(prices).map(s => s.totalAmount);
+        const counts = Object.values(prices).map(s => s.count);
+        // reuse the same palette
         const palette = ['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#22D3EE','#F472B6','#6366F1','#E879F9','#34D399','#F87171','#4ADE80','#FB923C','#A78BFA','#F9A8D4'];
-        if(quantityChart.current) quantityChart.current.destroy();
-        if(listingChart.current) listingChart.current.destroy();
+        if (quantityChart.current) quantityChart.current.destroy();
+        if (listingChart.current) listingChart.current.destroy();
         quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
-          type:'pie',
-          data:{ labels, datasets:[{ data:quantities, backgroundColor:palette.slice(0,labels.length) }] },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          type: 'pie',
+          data: { labels, datasets:[{ data: quantities, backgroundColor: palette.slice(0, labels.length) }] },
+          options: { responsive:true, plugins:{ legend:{ position:'bottom' } } }
         });
         listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
-          type:'pie',
-          data:{ labels, datasets:[{ data:counts, backgroundColor:palette.slice(0,labels.length).reverse() }] },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          type: 'pie',
+          data: { labels, datasets:[{ data: counts, backgroundColor: palette.slice(0, labels.length).reverse() }] },
+          options: { responsive:true, plugins:{ legend:{ position:'bottom' } } }
         });
       };
 
-      const fetchData = async () => {
-        setIsLoading(true); setErrorMsg(null);
+      // Individual fetchers
+      const fetchMarketData = async () => {
+        setErrorMsg(null);
         try {
-          const [mktRows, aucRows] = await Promise.all([ fetchAllRows('market'), fetchAllRows('auction') ]);
+          const mktRows = await fetchAllRows('market');
           setPrices(processMarket(mktRows));
           setListingsMap(buildListingsMap(mktRows));
-          setAuctions(processAuctions(aucRows));
-          setLastUpdated(new Date());
-        } catch(e) { setErrorMsg(e.message); } finally { setIsLoading(false); }
+          setLastUpdated(prev => ({ ...prev, market: new Date() }));
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
       };
 
-      const handleRefresh = () => {
-        if(isLoading||showAd) return;
-        setShowAd(true);
-        adTimerRef.current = setTimeout(()=>{
-          setShowAd(false);
-          fetchData();
-        },3000);
+      const fetchAuctionData = async () => {
+        setErrorMsg(null);
+        try {
+          const aucRows = await fetchAllRows('auction');
+          const processed = aucRows.map(item => ({
+            loc_id: item.loc_id,
+            owner: item.owner,
+            price: parseFloat(item.price).toFixed(2),
+            end_time: item.end_time,
+            bid_user: item.bid_user || '-'
+          }));
+          setAuctions(processed);
+          setLastUpdated(prev => ({ ...prev, auctions: new Date() }));
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
       };
 
-      React.useEffect(fetchData, []);
-      React.useEffect(()=>{
-        if(Object.keys(prices).length) drawPieCharts();
-      },[prices]);
+      const fetchLocData = async () => {
+        setErrorMsg(null);
+        try {
+          const rows = await fetchAllRows('loc');
+          setLocRows(rows);
+          setLastUpdated(prev => ({ ...prev, loc: new Date() }));
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
+      };
 
-      const sorted = React.useMemo(()=>{
-        return Object.entries(prices).sort((a,b)=>{
-          let A,B;
-          switch(sortConfig.key){
-            case 'resource':
-              A = RESOURCE_NAMES[a[0]];
-              B = RESOURCE_NAMES[b[0]];
-              break;
-            default:
-              A = a[1][sortConfig.key];
-              B = b[1][sortConfig.key];
+      const fetchOrderData = async () => {
+        setErrorMsg(null);
+        try {
+          const rows = await fetchAllRows('order');
+          setOrderRows(rows);
+          setLastUpdated(prev => ({ ...prev, order: new Date() }));
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
+      };
+
+      const fetchRailorderData = async () => {
+        setErrorMsg(null);
+        try {
+          const rows = await fetchAllRows('railorder');
+          setRailorderRows(rows);
+          setLastUpdated(prev => ({ ...prev, railorder: new Date() }));
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
+      };
+
+      const fetchWorkerData = async () => {
+        setErrorMsg(null);
+        try {
+          const rows = await fetchAllRows('worker');
+          setWorkerRows(rows);
+          setLastUpdated(prev => ({ ...prev, worker: new Date() }));
+        } catch (e) {
+          setErrorMsg(e.message);
+        }
+      };
+
+      // On initial mount, load only market & breakdown charts
+      React.useEffect(() => {
+        fetchMarketData().then(() => drawPieCharts());
+      }, []);
+
+      // Redraw charts whenever prices change
+      React.useEffect(() => {
+        if (Object.keys(prices).length) drawPieCharts();
+      }, [prices]);
+
+      // Sort the market entries
+      const sorted = React.useMemo(() => {
+        return Object.entries(prices).sort((a, b) => {
+          let A, B;
+          if (sortConfig.key === 'resource') {
+            A = RESOURCE_NAMES[a[0]];
+            B = RESOURCE_NAMES[b[0]];
+          } else {
+            A = a[1][sortConfig.key];
+            B = b[1][sortConfig.key];
           }
-          if(A < B) return sortConfig.direction === 'asc' ? -1 : 1;
-          if(A > B) return sortConfig.direction === 'asc' ? 1 : -1;
+          if (A < B) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (A > B) return sortConfig.direction === 'asc' ? 1 : -1;
           return 0;
         });
       }, [prices, sortConfig]);
 
       const toggleExpand = id => {
-        setExpandedIds(prev=>{
+        setExpandedIds(prev => {
           const s = new Set(prev);
           s.has(id) ? s.delete(id) : s.add(id);
           return s;
         });
+      };
+
+      // Centralized refresh: show ad, then call only the current tab’s fetch
+      const handleRefresh = () => {
+        if (isLoading || showAd) return;
+        setShowAd(true);
+        adTimerRef.current = setTimeout(async () => {
+          setShowAd(false);
+          setIsLoading(true);
+          switch (activeTab) {
+            case 'market':
+              await fetchMarketData();
+              break;
+            case 'auctions':
+              await fetchAuctionData();
+              break;
+            case 'loc':
+              await fetchLocData();
+              break;
+            case 'order':
+              await fetchOrderData();
+              break;
+            case 'railorder':
+              await fetchRailorderData();
+              break;
+            case 'worker':
+              await fetchWorkerData();
+              break;
+            default:
+              break;
+          }
+          setIsLoading(false);
+        }, 3000);
       };
 
       return (
@@ -319,7 +468,7 @@
                 <p className="text-lg font-bold">Advertisement</p>
                 <p>🔥 Found this app useful? Consider donating PGL or WAX to: sklam.wam 🔥</p>
                 <button
-                  onClick={() => { clearTimeout(adTimerRef.current); setShowAd(false); fetchData(); }}
+                  onClick={() => { clearTimeout(adTimerRef.current); setShowAd(false); handleRefresh(); }}
                   className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
                   Skip Ad & Refresh
@@ -327,22 +476,40 @@
               </div>
             </div>
           )}
+
           <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">
             Prospectors Price Tracker (Grandland)
           </h1>
-          <div className="flex justify-center space-x-4 mb-4">
-            <button
-              onClick={() => setActiveTab('market')}
-              className={`px-4 py-2 rounded ${activeTab==='market' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-            >
-              Market
-            </button>
-            <button
-              onClick={() => setActiveTab('auctions')}
-              className={`px-4 py-2 rounded ${activeTab==='auctions' ? 'bg-green-600 text-white' : 'bg-gray-200'}`}
-            >
-              Auctions
-            </button>
+
+          <div className="flex flex-wrap justify-center space-x-2 mb-4">
+            {['market','auctions','loc','order','railorder','worker'].map(tab => {
+              const labels = {
+                market: 'Market',
+                auctions: 'Auctions',
+                loc: 'Loc',
+                order: 'Order',
+                railorder: 'RailOrder',
+                worker: 'Worker'
+              };
+              const colors = {
+                market: 'bg-blue-600 text-white',
+                auctions: 'bg-green-600 text-white',
+                loc: 'bg-purple-600 text-white',
+                order: 'bg-indigo-600 text-white',
+                railorder: 'bg-yellow-600 text-white',
+                worker: 'bg-pink-600 text-white'
+              };
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-2 rounded ${activeTab===tab ? colors[tab] : 'bg-gray-200 text-gray-700'}`}
+                >
+                  {labels[tab]}
+                </button>
+              );
+            })}
+
             <button
               onClick={handleRefresh}
               disabled={isLoading}
@@ -350,17 +517,21 @@
             >
               {isLoading ? 'Refreshing…' : 'Refresh'}
             </button>
-            {lastUpdated && (
-              <span className="self-center text-gray-600">
-                Last refreshed: {lastUpdated.toLocaleString()}
+
+            {lastUpdated[activeTab] && (
+              <span className="self-center text-gray-600 ml-4">
+                Last refreshed: {lastUpdated[activeTab].toLocaleString()}
               </span>
             )}
           </div>
+
           {errorMsg && (
-            <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>
+            <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">
+              {errorMsg}
+            </div>
           )}
 
-          {activeTab==='market' ? (
+          {activeTab === 'market' && (
             <>
               <section className="mb-12">
                 <h2 className="text-2xl font-semibold mb-4 text-blue-700">
@@ -379,6 +550,7 @@
                   : <div className="text-gray-500">No data available.</div>
                 }
               </section>
+
               <section>
                 <h2 className="text-2xl font-semibold mb-4 text-blue-700">
                   Resource Breakdown
@@ -395,7 +567,9 @@
                 </div>
               </section>
             </>
-          ) : (
+          )}
+
+          {activeTab === 'auctions' && (
             <section>
               <h2 className="text-2xl font-semibold mb-4 text-green-700">
                 Current Auctions
@@ -404,6 +578,42 @@
                 ? <AuctionTable auctions={auctions}/>
                 : <div className="text-gray-500">No auction data available.</div>
               }
+            </section>
+          )}
+
+          {activeTab === 'loc' && (
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 text-purple-700">
+                Table: loc
+              </h2>
+              <RawTable rows={locRows}/>
+            </section>
+          )}
+
+          {activeTab === 'order' && (
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 text-indigo-700">
+                Table: order
+              </h2>
+              <RawTable rows={orderRows}/>
+            </section>
+          )}
+
+          {activeTab === 'railorder' && (
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 text-yellow-700">
+                Table: railorder
+              </h2>
+              <RawTable rows={railorderRows}/>
+            </section>
+          )}
+
+          {activeTab === 'worker' && (
+            <section>
+              <h2 className="text-2xl font-semibold mb-4 text-pink-700">
+                Table: worker
+              </h2>
+              <RawTable rows={workerRows}/>
             </section>
           )}
 
