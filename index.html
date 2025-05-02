@@ -145,7 +145,7 @@
               <th className="px-4 py-2 text-left">Location ID</th>
               <th className="px-4 py-2 text-left">Owner</th>
               <th className="px-4 py-2 text-left">Price</th>
-              <th className="px-4 py-2 text-left">End Time (min)</th>
+              <th className="px-4 py-2 text-left">End Time</th>
               <th className="px-4 py-2 text-left">Bid User</th>
             </tr>
           </thead>
@@ -155,7 +155,7 @@
                 <td className="px-4 py-2">{a.loc_id}</td>
                 <td className="px-4 py-2">{a.owner}</td>
                 <td className="px-4 py-2">{a.price}</td>
-                <td className="px-4 py-2">{a.minutes_left}</td>
+                <td className="px-4 py-2">{a.end_time}</td>
                 <td className="px-4 py-2">{a.bid_user}</td>
               </tr>
             ))}
@@ -232,17 +232,13 @@
       };
 
       const processAuctions = rows => {
-        return rows.map(item => {
-          const endTs = new Date(item.end_time).getTime();
-          const diffMin = Math.max(0, Math.round((endTs - Date.now())/60000));
-          return {
-            loc_id: item.loc_id,
-            owner: item.owner,
-            price: parseFloat(item.price).toFixed(2),
-            minutes_left: diffMin,
-            bid_user: item.bid_user || '-'
-          };
-        });
+        return rows.map(item => ({
+          loc_id: item.loc_id,
+          owner: item.owner,
+          price: parseFloat(item.price).toFixed(2),
+          end_time: item.end_time,
+          bid_user: item.bid_user || '-'
+        }));
       };
 
       const drawPieCharts = () => {
