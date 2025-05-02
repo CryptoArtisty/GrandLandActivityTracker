@@ -38,7 +38,7 @@
       </svg>
     );
 
-    
+    // PriceTable: unchanged
     const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
       const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
       const toggleListingSort = key => {
@@ -139,7 +139,7 @@
       );
     };
 
-    
+    // AuctionTable: unchanged
     const AuctionTable = ({ auctions }) => (
       <div className="overflow-x-auto bg-white rounded-lg shadow">
         <table className="min-w-full divide-y divide-gray-200">
@@ -167,7 +167,7 @@
       </div>
     );
 
-  
+    // RawTable: unchanged
     const RawTable = ({ rows }) => {
       if (!rows.length) return <div className="text-gray-500">No data available.</div>;
       const cols = Object.keys(rows[0]);
@@ -472,10 +472,10 @@
           </h1>
 
           <div className="flex flex-wrap justify-center space-x-2 mb-4">
-            {['market','auctions','locations','orders','rail orders','workers'].map(tab => {
+            {['market','auctions','loc','order','railorder','worker'].map(tab => {
               const labels = {
                 market:'Market', auctions:'Auctions',
-                loc:'Locations', order:'Orders', railorder:'Rail Orders', worker:'Workers'
+                loc:'Loc', order:'Order', railorder:'RailOrder', worker:'Worker'
               };
               const colors = {
                 market:'bg-blue-600 text-white', auctions:'bg-green-600 text-white',
@@ -624,7 +624,7 @@
           )}
 
           <footer className="mt-12 text-center text-gray-500">
-            Powered by WAX Blockchain | Deployed on Vercel | Prospectors fan site by: Cryptoartist (sklam.wam)
+            Powered by WAX Blockchain | Deployed on Vercel
           </footer>
         </div>
       );
