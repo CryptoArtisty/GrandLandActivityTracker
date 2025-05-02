@@ -70,7 +70,7 @@
                 });
                 return (
                   <React.Fragment key={typeId}>
-                    <tr className={`${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-blue-50`}>
+                    <tr className={\`\${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-blue-50\`}>
                       <td className="px-4 py-2 whitespace-nowrap">
                         <button onClick={()=>toggleExpand(typeId)} className="focus:outline-none text-blue-600">
                           {isOpen?<ChevronDown/>:<ChevronRight/>}
@@ -170,7 +170,7 @@
             try {
               const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:tableName, limit:1000 };
               if(lb) body.lower_bound = lb;
-              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, { headers:{ 'Content-Type':'application/json' }});
+              const r = await axios.post(\`\${base}/v1/chain/get_table_rows\`, body, { headers:{ 'Content-Type':'application/json' }});
               chunk = r.data.rows; break;
             } catch {}
           }
@@ -209,11 +209,18 @@
         return m;
       };
 
+      // <-- only change is here: grab loc_id instead of location_id, compute minutes_left
       const processAuctions = rows => {
         return rows.map(item => {
           const endTs = new Date(item.end_time).getTime();
           const diffMin = Math.max(0, Math.round((endTs - Date.now())/60000));
-          return { location_id:item.location_id, owner:item.owner, price:parseFloat(item.price).toFixed(2), minutes_left:diffMin, bid_user:item.bid_user || '-' };
+          return {
+            location_id: item.loc_id,       // now using loc_id
+            owner:        item.owner,
+            price:        parseFloat(item.price).toFixed(2),
+            minutes_left: diffMin,           // minutes until end
+            bid_user:     item.bid_user || '-'
+          };
         });
       };
 
@@ -232,14 +239,20 @@
         setIsLoading(true); setErrorMsg(null);
         try {
           const [mktRows, aucRows] = await Promise.all([ fetchAllRows('market'), fetchAllRows('auction') ]);
-          setPrices(processMarket(mktRows)); setListingsMap(buildListingsMap(mktRows)); setAuctions(processAuctions(aucRows)); setLastUpdated(new Date());
+          setPrices(processMarket(mktRows));
+          setListingsMap(buildListingsMap(mktRows));
+          setAuctions(processAuctions(aucRows));
+          setLastUpdated(new Date());
         } catch(e) { setErrorMsg(e.message); } finally { setIsLoading(false); }
       };
 
       const handleRefresh = () => {
         if(isLoading||showAd) return;
         setShowAd(true);
-        adTimerRef.current = setTimeout(()=>{ setShowAd(false); fetchData(); },3000);
+        adTimerRef.current = setTimeout(()=>{
+          setShowAd(false);
+          fetchData();
+        },3000);
       };
 
       React.useEffect(fetchData, []);
@@ -250,7 +263,14 @@
         if(A<B) return sortConfig.direction==='asc'? -1:1; if(A>B) return sortConfig.direction==='asc'? 1:-1; return 0;
       }), [prices, sortConfig]);
 
-      const toggleExpand = id => { setExpandedIds(prev=>{ const s=new Set(prev); s.has(id)?s.delete(id):s.add(id); return s; }); };
+      const toggleExpand = id => {
+        setExpandedIds(prev=>{
+          const s=new Set(prev);
+          if (s.has(id)) s.delete(id);
+          else s.add(id);
+          return s;
+        });
+      };
 
       return (
         <div className="container mx-auto p-6 relative">
@@ -259,15 +279,25 @@
               <div className="bg-yellow-200 p-6 rounded-lg shadow-lg text-center space-y-4">
                 <p className="text-lg font-bold">Advertisement</p>
                 <p>🔥 Found this app useful? Consider donating PGL or WAX to: sklam.wam 🔥</p>
-                <button onClick={()=>{ clearTimeout(adTimerRef.current); setShowAd(false); fetchData(); }} className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Skip Ad & Refresh</button>
+                <button onClick={()=>{
+                    clearTimeout(adTimerRef.current);
+                    setShowAd(false);
+                    fetchData();
+                  }}
+                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Skip Ad & Refresh
+                </button>
               </div>
             </div>
           )}
           <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">Prospectors Price Tracker (Grandland)</h1>
           <div className="flex justify-center space-x-4 mb-4">
-            <button onClick={()=>setActiveTab('market')} className={`px-4 py-2 rounded ${activeTab==='market'? 'bg-blue-600 text-white':'bg-gray-200'}`}>Market</button>
-            <button onClick={()=>setActiveTab('auctions')} className={`px-4 py-2 rounded ${activeTab==='auctions'? 'bg-green-600 text-white':'bg-gray-200'}`}>Auctions</button>
-            <button onClick={handleRefresh} disabled={isLoading} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">{isLoading?'Refreshing…':'Refresh'}</button>
+            <button onClick={()=>setActiveTab('market')} className={\`px-4 py-2 rounded \${activeTab==='market'? 'bg-blue-600 text-white':'bg-gray-200'}\`}>Market</button>
+            <button onClick={()=>setActiveTab('auctions')} className={\`px-4 py-2 rounded \${activeTab==='auctions'? 'bg-green-600 text-white':'bg-gray-200'}\`}>Auctions</button>
+            <button onClick={handleRefresh} disabled={isLoading} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+              {isLoading?'Refreshing…':'Refresh'}
+            </button>
             {lastUpdated&&<span className="self-center text-gray-600">Last refreshed: {lastUpdated.toLocaleString()}</span>}
           </div>
           {errorMsg&&<div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>}
@@ -276,7 +306,18 @@
             <>
               <section className="mb-12">
                 <h2 className="text-2xl font-semibold mb-4 text-blue-700">Latest Listings And Prices</h2>
-                {sorted.length? <PriceTable sortedPrices={sorted} onSort={k=>setSortConfig(prev=>({ key:k, direction: prev.key===k&&prev.direction==='asc'?'desc':'asc' }))} sortConfig={sortConfig} previousPrices={previousPrices} listingsMap={listingsMap} expandedIds={expandedIds} toggleExpand={toggleExpand}/> : <div className="text-gray-500">No data available.</div>}
+                {sorted.length
+                  ? <PriceTable
+                      sortedPrices={sorted}
+                      onSort={k=>setSortConfig(prev=>({ key:k, direction: prev.key===k&&prev.direction==='asc'?'desc':'asc' }))}
+                      sortConfig={sortConfig}
+                      previousPrices={previousPrices}
+                      listingsMap={listingsMap}
+                      expandedIds={expandedIds}
+                      toggleExpand={toggleExpand}
+                    />
+                  : <div className="text-gray-500">No data available.</div>
+                }
               </section>
               <section>
                 <h2 className="text-2xl font-semibold mb-4 text-blue-700">Resource Breakdown</h2>
@@ -295,7 +336,10 @@
           ) : (
             <section>
               <h2 className="text-2xl font-semibold mb-4 text-green-700">Current Auctions</h2>
-              {auctions.length? <AuctionTable auctions={auctions}/> : <div className="text-gray-500">No auction data available.</div>}
+              {auctions.length
+                ? <AuctionTable auctions={auctions}/>
+                : <div className="text-gray-500">No auction data available.</div>
+              }
             </section>
           )}
 
