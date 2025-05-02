@@ -8,6 +8,8 @@
   <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
+  <!-- Include the DataLabels plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
 </head>
@@ -15,6 +17,9 @@
   <div id="root"></div>
 
   <script type="text/babel">
+    // Register the DataLabels plugin with Chart.js
+    Chart.register(ChartDataLabels);
+
     const RESOURCE_NAMES = {
       2:'Wood',3:'Stone',4:'Coal',5:'Clay',6:'Iron Ore',7:'Stone Block',
       8:'Stone Plate',9:'Wood Beam',10:'Wood Board',11:'Wood Girder',12:'Clay Brick',
@@ -38,7 +43,7 @@
       </svg>
     );
 
-    // PriceTable: unchanged
+    // PriceTable component (unchanged) ...
     const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
       const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
       const toggleListingSort = key => {
@@ -46,7 +51,6 @@
       };
       const cols = ['resource','average','totalAmount','count','min','max','delta'];
       const labels = { resource:'Resource', average:'Avg Price', totalAmount:'Total Amount', count:'Listings', min:'Min', max:'Max', delta:'Δ Price' };
-
       return (
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
@@ -139,7 +143,7 @@
       );
     };
 
-    // AuctionTable: unchanged
+    // AuctionTable component (unchanged) ...
     const AuctionTable = ({ auctions }) => (
       <div className="overflow-x-auto bg-white rounded-lg shadow">
         <table className="min-w-full divide-y divide-gray-200">
@@ -167,7 +171,7 @@
       </div>
     );
 
-    // RawTable: unchanged
+    // RawTable component (unchanged) ...
     const RawTable = ({ rows }) => {
       if (!rows.length) return <div className="text-gray-500">No data available.</div>;
       const cols = Object.keys(rows[0]);
@@ -195,34 +199,34 @@
       );
     };
 
+    // Main App component
     const App = () => {
-      // States for each tab
+      // Market & auction state
       const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
       const [auctions, setAuctions] = React.useState([]);
+
+      // Other tables
+      const [locRows, setLocRows] = React.useState([]);
       const [orderRows, setOrderRows] = React.useState([]);
       const [railorderRows, setRailorderRows] = React.useState([]);
-
-      // paginated for loc & worker
-      const [locRows, setLocRows] = React.useState([]);
-      const [locLB, setLocLB] = React.useState(null);
-      const [locHasMore, setLocHasMore] = React.useState(false);
-
       const [workerRows, setWorkerRows] = React.useState([]);
-      const [workerLB, setWorkerLB] = React.useState(null);
-      const [workerHasMore, setWorkerHasMore] = React.useState(false);
 
+      // Table controls
       const [sortConfig, setSortConfig] = React.useState({key:'resource',direction:'asc'});
       const [expandedIds, setExpandedIds] = React.useState(new Set());
       const [activeTab, setActiveTab] = React.useState('market');
 
+      // UI state
       const [showAd, setShowAd] = React.useState(false);
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState({});
 
       const adTimerRef = React.useRef(null);
+
+      // Chart refs
       const quantityChartRef = React.useRef(null);
       const listingChartRef = React.useRef(null);
       const quantityChart = React.useRef(null);
@@ -234,8 +238,8 @@
         'https://wax.cryptolions.io'
       ];
 
-      // generic partial fetch
-      const fetchRows = async (tableName, limit=100, lower_bound=null) => {
+      // Generic paginated fetch
+      const fetchRows = async (tableName, limit=1000, lower_bound=null) => {
         const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:tableName, limit };
         if (lower_bound != null) body.lower_bound = lower_bound;
         for (const base of RPCS) {
@@ -249,14 +253,14 @@
         throw new Error('All RPCs failed');
       };
 
-      // full-market & charts
+      // Market data processing
       const processMarket = rows => {
         const b = {};
         rows.forEach(item => {
           const id = item.stuff.type_id;
           const p = parseFloat(item.price);
           const a = parseFloat(item.stuff.amount);
-          if (!b[id]) b[id] = { prices:[], min:p, max:p, totalAmount:a };
+          if (!b[id]) b[id] = { prices:[], min:p, max:p, totalAmount: a };
           else {
             b[id].min = Math.min(b[id].min, p);
             b[id].max = Math.max(b[id].max, p);
@@ -266,9 +270,16 @@
         });
         return Object.fromEntries(Object.entries(b).map(([id,o])=>{
           const avg = o.prices.reduce((x,y)=>x+y,0)/o.prices.length;
-          return [id,{ average:+avg.toFixed(2), totalAmount:o.totalAmount, count:o.prices.length, min:+o.min.toFixed(2), max:+o.max.toFixed(2) }];
+          return [id,{
+            average:+avg.toFixed(2),
+            totalAmount:o.totalAmount,
+            count:o.prices.length,
+            min:+o.min.toFixed(2),
+            max:+o.max.toFixed(2)
+          }];
         }));
       };
+
       const buildListingsMap = rows => {
         const m = {};
         rows.forEach(item => {
@@ -281,26 +292,110 @@
         return m;
       };
 
+      // Draw the revamped Resource Breakdown pies
       const drawPieCharts = () => {
         const labels = Object.keys(prices).map(id=>RESOURCE_NAMES[id]||id);
         const quantities = Object.values(prices).map(s=>s.totalAmount);
         const counts = Object.values(prices).map(s=>s.count);
-        const palette = ['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#22D3EE','#F472B6','#6366F1','#E879F9','#34D399','#F87171','#4ADE80','#FB923C','#A78BFA','#F9A8D4'];
+
+        // A vibrant palette
+        const palette = [
+          '#3B82F6','#EF4444','#10B981','#F59E0B',
+          '#8B5CF6','#EC4899','#22D3EE','#F472B6',
+          '#6366F1','#E879F9','#34D399','#F87171',
+          '#4ADE80','#FB923C','#A78BFA','#F9A8D4'
+        ];
+
+        // Destroy old charts
         if (quantityChart.current) quantityChart.current.destroy();
         if (listingChart.current) listingChart.current.destroy();
+
+        // Total Quantity (%) pie
         quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
-          type:'pie',
-          data:{ labels, datasets:[{ data:quantities, backgroundColor:palette.slice(0,labels.length) }] },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          type: 'pie',
+          data: {
+            labels,
+            datasets:[{
+              data: quantities,
+              backgroundColor: palette.slice(0, labels.length),
+              borderColor: '#fff',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom' },
+              datalabels: {
+                formatter: (value, ctx) => {
+                  const dataArr = ctx.chart.data.datasets[0].data;
+                  const sum = dataArr.reduce((acc, v) => acc + v, 0);
+                  const pct = (value / sum * 100).toFixed(1) + '%';
+                  return pct;
+                },
+                color: '#ffffff',
+                font: { weight: 'bold', size: 12 }
+              },
+              tooltip: {
+                callbacks: {
+                  label: context => {
+                    const v = context.raw;
+                    const dataArr = context.chart.data.datasets[0].data;
+                    const sum = dataArr.reduce((acc, n) => acc + n, 0);
+                    const pct = (v / sum * 100).toFixed(1) + '%';
+                    return `${context.label}: ${v} (${pct})`;
+                  }
+                }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
         });
+
+        // Total Listings (%) pie
         listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
-          type:'pie',
-          data:{ labels, datasets:[{ data:counts, backgroundColor:palette.slice(0,labels.length).reverse() }] },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          type: 'pie',
+          data: {
+            labels,
+            datasets:[{
+              data: counts,
+              backgroundColor: palette.slice(0, labels.length).reverse(),
+              borderColor: '#fff',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom' },
+              datalabels: {
+                formatter: (value, ctx) => {
+                  const dataArr = ctx.chart.data.datasets[0].data;
+                  const sum = dataArr.reduce((acc, v) => acc + v, 0);
+                  const pct = (value / sum * 100).toFixed(1) + '%';
+                  return pct;
+                },
+                color: '#ffffff',
+                font: { weight: 'bold', size: 12 }
+              },
+              tooltip: {
+                callbacks: {
+                  label: context => {
+                    const v = context.raw;
+                    const dataArr = context.chart.data.datasets[0].data;
+                    const sum = dataArr.reduce((acc, n) => acc + n, 0);
+                    const pct = (v / sum * 100).toFixed(1) + '%';
+                    return `${context.label}: ${v} (${pct})`;
+                  }
+                }
+              }
+            }
+          },
+          plugins: [ChartDataLabels]
         });
       };
 
-      // per-tab fetchers
+      // Fetch functions for each tab
       const fetchMarketData = async () => {
         setErrorMsg(null);
         try {
@@ -315,12 +410,21 @@
         setErrorMsg(null);
         try {
           const rows = await fetchRows('auction',1000,null);
-          const processed = rows.map(item=>({
-            loc_id:item.loc_id, owner:item.owner, price:parseFloat(item.price).toFixed(2),
-            end_time:item.end_time, bid_user: item.bid_user|| '-'
-          }));
-          setAuctions(processed);
+          setAuctions(rows.map(item=>({
+            loc_id:item.loc_id, owner:item.owner,
+            price:parseFloat(item.price).toFixed(2),
+            end_time:item.end_time, bid_user:item.bid_user|| '-'
+          })));
           setLastUpdated(prev => ({ ...prev, auctions: new Date() }));
+        } catch(e){ setErrorMsg(e.message); }
+      };
+
+      const fetchLocData = async () => {
+        setErrorMsg(null);
+        try {
+          const rows = await fetchRows('loc',1000,null);
+          setLocRows(rows);
+          setLastUpdated(prev => ({ ...prev, loc: new Date() }));
         } catch(e){ setErrorMsg(e.message); }
       };
 
@@ -342,59 +446,26 @@
         } catch(e){ setErrorMsg(e.message); }
       };
 
-      // LOC & WORKER pagination
-      const fetchLocPage = async (reset=false) => {
+      const fetchWorkerData = async () => {
         setErrorMsg(null);
         try {
-          const lb = reset ? null : locLB;
-          const rows = await fetchRows('loc',100, lb);
-          if (reset) {
-            setLocRows(rows);
-          } else {
-            setLocRows(prev => [...prev, ...rows]);
-          }
-          if (rows.length === 100) {
-            const lastId = rows[rows.length-1].id;
-            setLocLB(lastId);
-            setLocHasMore(true);
-          } else {
-            setLocHasMore(false);
-          }
-          setLastUpdated(prev => ({ ...prev, loc: new Date() }));
-        } catch(e){ setErrorMsg(e.message); }
-      };
-
-      const fetchWorkerPage = async (reset=false) => {
-        setErrorMsg(null);
-        try {
-          const lb = reset ? null : workerLB;
-          const rows = await fetchRows('worker',100, lb);
-          if (reset) {
-            setWorkerRows(rows);
-          } else {
-            setWorkerRows(prev => [...prev, ...rows]);
-          }
-          if (rows.length === 100) {
-            const lastId = rows[rows.length-1].id;
-            setWorkerLB(lastId);
-            setWorkerHasMore(true);
-          } else {
-            setWorkerHasMore(false);
-          }
+          const rows = await fetchRows('worker',1000,null);
+          setWorkerRows(rows);
           setLastUpdated(prev => ({ ...prev, worker: new Date() }));
         } catch(e){ setErrorMsg(e.message); }
       };
 
-      // initial load: market + charts
+      // Initial load: just market so we can draw charts
       React.useEffect(() => {
         fetchMarketData().then(drawPieCharts);
       }, []);
 
-      // redraw when market changes
+      // Redraw charts when the underlying prices change
       React.useEffect(() => {
         if (Object.keys(prices).length) drawPieCharts();
       }, [prices]);
 
+      // Sort the market data
       const sorted = React.useMemo(() => {
         return Object.entries(prices).sort((a,b) => {
           let A,B;
@@ -411,47 +482,35 @@
 
       const toggleExpand = id => {
         setExpandedIds(prev => {
-          const s = new Set(prev);
+          const s=new Set(prev);
           s.has(id)? s.delete(id): s.add(id);
           return s;
         });
       };
 
-      // unified refresh: show ad then load only active tab
+      // Per-tab refresh with ad
       const handleRefresh = () => {
-        if (isLoading || showAd) return;
+        if (isLoading||showAd) return;
         setShowAd(true);
         adTimerRef.current = setTimeout(async () => {
           setShowAd(false);
           setIsLoading(true);
           switch(activeTab) {
-            case 'market':
-              await fetchMarketData();
-              break;
-            case 'auctions':
-              await fetchAuctionData();
-              break;
-            case 'order':
-              await fetchOrderData();
-              break;
-            case 'railorder':
-              await fetchRailorderData();
-              break;
-            case 'loc':
-              await fetchLocPage(true);
-              break;
-            case 'worker':
-              await fetchWorkerPage(true);
-              break;
-            default:
-              break;
+            case 'market':     await fetchMarketData();     break;
+            case 'auctions':   await fetchAuctionData();    break;
+            case 'loc':        await fetchLocData();        break;
+            case 'order':      await fetchOrderData();      break;
+            case 'railorder':  await fetchRailorderData();  break;
+            case 'worker':     await fetchWorkerData();     break;
+            default: break;
           }
           setIsLoading(false);
-        }, 3000);
+        },3000);
       };
 
       return (
         <div className="container mx-auto p-6 relative">
+
           {showAd && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-yellow-200 p-6 rounded-lg shadow-lg text-center space-y-4">
@@ -487,12 +546,12 @@
                   key={tab}
                   onClick={()=>{
                     setActiveTab(tab);
-                    // for paginated tabs, load first page on first click
-                    if(tab==='loc' && locRows.length===0) fetchLocPage(true);
-                    if(tab==='worker' && workerRows.length===0) fetchWorkerPage(true);
-                    if(tab==='auctions' && auctions.length===0) fetchAuctionData();
-                    if(tab==='order' && orderRows.length===0) fetchOrderData();
-                    if(tab==='railorder' && railorderRows.length===0) fetchRailorderData();
+                    // load data on first tab click
+                    if(tab==='auctions'   && auctions.length===0)   fetchAuctionData();
+                    if(tab==='loc'        && locRows.length===0)     fetchLocData();
+                    if(tab==='order'      && orderRows.length===0)   fetchOrderData();
+                    if(tab==='railorder'  && railorderRows.length===0) fetchRailorderData();
+                    if(tab==='worker'     && workerRows.length===0)  fetchWorkerData();
                   }}
                   className={`px-3 py-2 rounded ${activeTab===tab? colors[tab] :'bg-gray-200 text-gray-700'}`}
                 >
@@ -517,9 +576,7 @@
           </div>
 
           {errorMsg && (
-            <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">
-              {errorMsg}
-            </div>
+            <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>
           )}
 
           {activeTab==='market' && (
@@ -541,6 +598,7 @@
                   : <div className="text-gray-500">No data available.</div>
                 }
               </section>
+
               <section>
                 <h2 className="text-2xl font-semibold mb-4 text-blue-700">
                   Resource Breakdown
@@ -550,7 +608,7 @@
                     <h3 className="text-lg font-medium mb-2">Total Quantity (%)</h3>
                     <canvas ref={quantityChartRef}></canvas>
                   </div>
-                  <div className="bg-white p=4 rounded-lg shadow">
+                  <div className="bg-white p-4 rounded-lg shadow">
                     <h3 className="text-lg font-medium mb-2">Total Listings (%)</h3>
                     <canvas ref={listingChartRef}></canvas>
                   </div>
@@ -573,53 +631,29 @@
 
           {activeTab==='loc' && (
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-purple-700">
-                Table: loc (paginated)
-              </h2>
+              <h2 className="text-2xl font-semibold mb-4 text-purple-700">Table: loc</h2>
               <RawTable rows={locRows}/>
-              {locHasMore && (
-                <button
-                  onClick={()=>fetchLocPage(false)}
-                  className="mt-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                >
-                  Load More (100)
-                </button>
-              )}
             </section>
           )}
 
           {activeTab==='order' && (
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-indigo-700">
-                Table: order
-              </h2>
+              <h2 className="text-2xl font-semibold mb-4 text-indigo-700">Table: order</h2>
               <RawTable rows={orderRows}/>
             </section>
           )}
 
           {activeTab==='railorder' && (
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-yellow-700">
-                Table: railorder
-              </h2>
+              <h2 className="text-2xl font-semibold mb-4 text-yellow-700">Table: railorder</h2>
               <RawTable rows={railorderRows}/>
             </section>
           )}
 
           {activeTab==='worker' && (
             <section>
-              <h2 className="text-2xl font-semibold mb-4 text-pink-700">
-                Table: worker (paginated)
-              </h2>
+              <h2 className="text-2xl font-semibold mb-4 text-pink-700">Table: worker</h2>
               <RawTable rows={workerRows}/>
-              {workerHasMore && (
-                <button
-                  onClick={()=>fetchWorkerPage(false)}
-                  className="mt-4 px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700"
-                >
-                  Load More (100)
-                </button>
-              )}
             </section>
           )}
 
