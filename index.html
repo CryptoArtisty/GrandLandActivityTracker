@@ -23,6 +23,7 @@
       gap: 10px;
       margin-bottom: 10px;
       align-items: center;
+      flex-wrap: wrap;
     }
     .grid {
       display: grid;
@@ -62,6 +63,7 @@
       font-size: 12px;
       max-width: 200px;
       box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      z-index: 1001;
     }
     .tooltip .close-btn {
       position: absolute;
@@ -77,8 +79,9 @@
       background: rgba(0,0,0,0.7);
       padding: 10px;
       border-radius: 5px;
+      z-index: 1000;
     }
-    #loadMoreBtn, #modeToggleBtn {
+    #loadMoreBtn, #modeToggleBtn, #saveNotesBtn, #clearCustomColorsBtn {
       padding: 8px 16px;
       background: #444;
       color: #fff;
@@ -86,7 +89,7 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    #loadMoreBtn:disabled, #modeToggleBtn:disabled {
+    #loadMoreBtn:disabled, #modeToggleBtn:disabled, #saveNotesBtn:disabled {
       background: #666;
       cursor: default;
     }
@@ -116,6 +119,38 @@
       height: 15px;
       margin-right: 6px;
       border: 1px solid #ccc;
+    }
+    /* Notes editor */
+    #notesEditor {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #333;
+      padding: 20px;
+      border-radius: 8px;
+      z-index: 1002;
+      width: 400px;
+      max-width: 90%;
+    }
+    #notesEditor textarea {
+      width: 100%;
+      height: 150px;
+      margin: 10px 0;
+      padding: 8px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
+    }
+    #notesEditor button {
+      margin-right: 10px;
+    }
+    #quadrantSelector {
+      padding: 6px;
+      background: #444;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
     }
   </style>
 </head>
@@ -155,7 +190,7 @@
       );
     };
 
-    // Price Tracker App
+    // Price Tracker App (unchanged)
     const PriceTrackerApp = () => {
       const RESOURCE_NAMES = {
         2:'Wood',3:'Stone',4:'Coal',5:'Clay',6:'Iron Ore',7:'Stone Block',
@@ -180,7 +215,6 @@
         </svg>
       );
 
-      // Price table unchanged
       const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
         const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
         const toggleListingSort = key => {
@@ -281,7 +315,6 @@
         );
       };
 
-      // Auctions unchanged
       const AuctionTable = ({ auctions }) => (
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
@@ -309,7 +342,6 @@
         </div>
       );
 
-      // RawTable unchanged
       const RawTable = ({ rows }) => {
         if (!rows.length) return <div className="text-gray-500">No data available.</div>;
         const cols = Object.keys(rows[0]);
@@ -687,13 +719,13 @@
           )}
 
           <footer className="mt-12 text-center text-gray-500">
-            Powered by WAX Blockchain | Deployed on Vercel | A Prospectors game Fan site by: Cryptoartist (sklam.wam)
+            Powered by WAX Blockchain | Deployed on Vercel
           </footer>
         </div>
       );
     };
 
-    // Loc Explorer App
+    // Loc Explorer App with all new features
     const LocExplorerApp = () => {
       React.useEffect(() => {
         // RESOURCE‐TYPE PALETTE
@@ -719,15 +751,67 @@
         let isSingleMode = true;
         let allRows = [], locLB = null, locHasMore = true;
         let cachedData = null, lastUpdate = null;
+        let selectedQuadrant = 'all';
+        let currentNoteCell = null;
+        let isColorSelectionMode = false;
+
+        // Load saved data from localStorage
+        function loadSavedData() {
+          const savedColors = localStorage.getItem('locExplorerCustomColors');
+          const savedNotes = localStorage.getItem('locExplorerNotes');
+          const savedCache = localStorage.getItem('cachedLocData');
+          const savedCacheTime = localStorage.getItem('lastLocUpdate');
+          
+          if (savedColors) {
+            try {
+              const colors = JSON.parse(savedColors);
+              Object.entries(colors).forEach(([id, color]) => {
+                const el = document.getElementById(id);
+                if (el) {
+                  el.dataset.customColor = color;
+                  el.style.background = color;
+                }
+              });
+            } catch (e) {
+              console.error('Error loading custom colors:', e);
+            }
+          }
+          
+          if (savedNotes) {
+            try {
+              return JSON.parse(savedNotes);
+            } catch (e) {
+              console.error('Error loading notes:', e);
+              return {};
+            }
+          }
+          
+          if (savedCache && savedCacheTime) {
+            try {
+              cachedData = JSON.parse(savedCache);
+              lastUpdate = Number(savedCacheTime);
+            } catch (e) {
+              console.error('Error loading cache:', e);
+            }
+          }
+          
+          return {};
+        }
+
+        // Initialize notes object
+        const notes = loadSavedData();
 
         // UTILITIES
         function updateStatus(msg) {
           document.getElementById('status').textContent = msg;
         }
+
         function resetGrid() {
           document.querySelectorAll('.plot').forEach(el => {
             el.className = 'plot';
-            el.style.background = '';
+            if (!el.dataset.customColor) {
+              el.style.background = '';
+            }
             delete el.dataset.tooltip;
             delete el.dataset.resources;
             delete el.dataset.resourceIndex;
@@ -771,36 +855,56 @@
 
         // BULK MODE HANDLERS
         function loadCachedData() {
-          const s = localStorage.getItem('cachedLocData'),
-                t = localStorage.getItem('lastLocUpdate');
-          if (s && t) {
-            try {
-              cachedData = JSON.parse(s);
-              lastUpdate = Number(t);
-              const first = cachedData.slice(0,100);
-              allRows = first;
-              locLB = first.length===100 ? first[first.length-1].id : null;
-              locHasMore = cachedData.length > 100;
-              processData(allRows);
-              updateStatus(
-                `Bulk Mode: loaded cache (${new Date(lastUpdate).toLocaleString()})`
-              );
-              updateButton();
-            } catch {}
+          if (cachedData && lastUpdate) {
+            const first = cachedData.slice(0,100);
+            allRows = first;
+            locLB = first.length===100 ? first[first.length-1].id : null;
+            locHasMore = cachedData.length > 100;
+            processData(allRows);
+            updateStatus(
+              `Bulk Mode: loaded cache (${new Date(lastUpdate).toLocaleString()})`
+            );
+            updateButton();
           }
         }
 
         async function loadMoreLocData() {
           const btn = document.getElementById('loadMoreBtn');
           btn.disabled = true;
-          updateStatus('Bulk Mode: loading next 100…');
+          updateStatus(`Bulk Mode: loading next 100 from quadrant ${selectedQuadrant}...`);
+          
           try {
-            const rows = await fetchRows('loc',100,locLB);
+            let rows;
+            if (selectedQuadrant === 'all') {
+              rows = await fetchRows('loc', 100, locLB);
+            } else {
+              // For quadrant-specific loading, we need to calculate bounds
+              const quadrantBounds = {
+                'nw': { minX: -50, maxX: -1, minY: 1, maxY: 50 },
+                'ne': { minX: 1, maxX: 50, minY: 1, maxY: 50 },
+                'sw': { minX: -50, maxX: -1, minY: -50, maxY: -1 },
+                'se': { minX: 1, maxX: 50, minY: -50, maxY: -1 }
+              };
+              const bounds = quadrantBounds[selectedQuadrant];
+              
+              // Fetch all and filter (this is inefficient but works with current API)
+              rows = await fetchRows('loc', 1000, locLB);
+              rows = rows.filter(row => {
+                const n = BigInt(row.id);
+                const x = Number((n >> 16n) & 0xFFFFn);
+                const y = Number(n & 0xFFFFn);
+                return x >= bounds.minX && x <= bounds.maxX && 
+                       y >= bounds.minY && y <= bounds.maxY;
+              }).slice(0, 100); // Take first 100 that match
+            }
+            
             if (rows.length) {
               allRows.push(...rows);
               rows.forEach(addOrUpdatePlot);
               locLB = rows.length===100 ? rows[rows.length-1].id : null;
               locHasMore = rows.length===100;
+              
+              // Update cache if we're not using it
               if (!cachedData) {
                 lastUpdate = Date.now();
                 localStorage.setItem('cachedLocData', JSON.stringify(allRows));
@@ -809,10 +913,11 @@
             } else {
               locHasMore = false;
             }
-            updateStatus(`Bulk Mode: ${allRows.length} rows loaded`);
-          } catch {
-            updateStatus('Bulk Mode: error loading');
+            updateStatus(`Bulk Mode: ${allRows.length} rows loaded (Quadrant: ${selectedQuadrant})`);
+          } catch (e) {
+            updateStatus('Bulk Mode: error loading - ' + e.message);
           }
+          
           updateButton();
         }
 
@@ -820,7 +925,7 @@
           const btn = document.getElementById('loadMoreBtn');
           btn.disabled = !locHasMore;
           btn.textContent = locHasMore
-            ? 'Load More (100)'
+            ? `Load More (100) - ${selectedQuadrant.toUpperCase()}`
             : `All Loaded (${allRows.length})`;
         }
 
@@ -831,12 +936,21 @@
         // COLOR KEY RENDER
         function createColorKey() {
           const keyDiv = document.getElementById('colorKey');
+          keyDiv.innerHTML = ''; // Clear existing
+          
+          // Resource colors
           for (const [res, col] of Object.entries(RESOURCE_COLORS)) {
             const item = document.createElement('div');
             item.className = 'key-item';
             item.innerHTML = `<div class="color-swatch" style="background:${col}"></div>${res.charAt(0).toUpperCase()+res.slice(1)}`;
             keyDiv.appendChild(item);
           }
+          
+          // Custom color indicator
+          const customItem = document.createElement('div');
+          customItem.className = 'key-item';
+          customItem.innerHTML = `<div class="color-swatch" style="background:#f39c12"></div>Custom Color`;
+          keyDiv.appendChild(customItem);
         }
 
         // GRID INITIALIZATION
@@ -873,6 +987,35 @@
           document.getElementById('loadMoreBtn')
             .addEventListener('click', loadMoreLocData);
 
+          // Quadrant selector
+          document.getElementById('quadrantSelector')
+            .addEventListener('change', (e) => {
+              selectedQuadrant = e.target.value;
+              updateButton();
+            });
+
+          // Color picker mode toggle
+          document.getElementById('colorModeToggleBtn')
+            .addEventListener('click', () => {
+              isColorSelectionMode = !isColorSelectionMode;
+              const btn = document.getElementById('colorModeToggleBtn');
+              btn.textContent = isColorSelectionMode 
+                ? 'Exit Color Mode' 
+                : 'Enter Color Mode';
+              btn.style.backgroundColor = isColorSelectionMode ? '#f39c12' : '#444';
+              updateStatus(isColorSelectionMode 
+                ? 'Color Mode: Click cells to apply custom color' 
+                : 'Exited Color Mode');
+            });
+
+          // Save notes button
+          document.getElementById('saveNotesBtn')
+            .addEventListener('click', saveNotes);
+
+          // Clear custom colors button
+          document.getElementById('clearCustomColorsBtn')
+            .addEventListener('click', clearCustomColors);
+
           // start in single mode
           document.getElementById('loadMoreBtn').style.display = 'none';
 
@@ -895,14 +1038,47 @@
             plot.dataset.central = "true";
           }
 
+          // Load custom color if exists
+          const savedColors = JSON.parse(localStorage.getItem('locExplorerCustomColors') || '{}');
+          if (savedColors[key]) {
+            plot.dataset.customColor = savedColors[key];
+            plot.style.background = savedColors[key];
+          }
+
+          // Mouse enter event for hover tooltip
+          plot.addEventListener('mouseenter', (e) => {
+            showHoverTooltip(e, plot);
+          });
+
+          // Mouse leave event to remove hover tooltip
+          plot.addEventListener('mouseleave', () => {
+            document.querySelectorAll('.hover-tooltip').forEach(t => t.remove());
+          });
+
+          // Click event handler
           plot.addEventListener('click', async e => {
-            const picker = document.getElementById('colorPicker');
-            // SHIFT+CLICK → custom color
-            if (e.shiftKey) {
+            // Check if we're in color selection mode
+            if (isColorSelectionMode) {
+              const picker = document.getElementById('colorPicker');
               plot.dataset.customColor = picker.value;
               plot.style.background = picker.value;
+              
+              // Save to localStorage
+              const savedColors = JSON.parse(localStorage.getItem('locExplorerCustomColors') || {});
+              savedColors[plot.id] = picker.value;
+              localStorage.setItem('locExplorerCustomColors', JSON.stringify(savedColors));
               return;
             }
+
+            // Check if we're in note editing mode (Alt+Click)
+            if (e.altKey) {
+              currentNoteCell = plot.id;
+              showNoteEditor(plot);
+              return;
+            }
+
+            const picker = document.getElementById('colorPicker');
+            
             // CTRL+CLICK → cycle through resources if present
             if (e.ctrlKey && plot.dataset.resources) {
               const resources = JSON.parse(plot.dataset.resources);
@@ -935,6 +1111,104 @@
           });
 
           return plot;
+        }
+
+        // SHOW HOVER TOOLTIP
+        function showHoverTooltip(e, plot) {
+          // Remove any existing hover tooltips
+          document.querySelectorAll('.hover-tooltip').forEach(t => t.remove());
+          
+          const tip = document.createElement('div');
+          tip.className = 'tooltip hover-tooltip';
+          tip.style.left = `${e.pageX + 12}px`;
+          tip.style.top = `${e.pageY + 12}px`;
+          
+          const content = document.createElement('div');
+          const coords = `Coordinates: ${plot.dataset.x}/${plot.dataset.y}`;
+          
+          // Add note if exists
+          const noteContent = notes[plot.id] ? `\n\nNotes:\n${notes[plot.id]}` : '';
+          
+          // Add custom color indicator if exists
+          const colorContent = plot.dataset.customColor 
+            ? `\n\nCustom Color: ${plot.dataset.customColor}` 
+            : '';
+          
+          content.textContent = coords + noteContent + colorContent;
+          tip.appendChild(content);
+          document.body.appendChild(tip);
+        }
+
+        // SHOW NOTE EDITOR
+        function showNoteEditor(plot) {
+          // Remove any existing editors
+          const existingEditor = document.getElementById('notesEditor');
+          if (existingEditor) existingEditor.remove();
+          
+          const editor = document.createElement('div');
+          editor.id = 'notesEditor';
+          editor.innerHTML = `
+            <h3>Edit Notes for ${plot.dataset.x}/${plot.dataset.y}</h3>
+            <textarea id="noteTextArea">${notes[plot.id] || ''}</textarea>
+            <div>
+              <button id="saveNoteBtn">Save Note</button>
+              <button id="cancelNoteBtn">Cancel</button>
+              <button id="deleteNoteBtn">Delete Note</button>
+            </div>
+          `;
+          document.body.appendChild(editor);
+          
+          // Event listeners for editor buttons
+          document.getElementById('saveNoteBtn').addEventListener('click', () => {
+            const text = document.getElementById('noteTextArea').value;
+            if (text.trim()) {
+              notes[plot.id] = text;
+            } else {
+              delete notes[plot.id];
+            }
+            editor.remove();
+            updateStatus(`Note ${text.trim() ? 'saved' : 'removed'} for ${plot.dataset.x}/${plot.dataset.y}`);
+          });
+          
+          document.getElementById('cancelNoteBtn').addEventListener('click', () => {
+            editor.remove();
+          });
+          
+          document.getElementById('deleteNoteBtn').addEventListener('click', () => {
+            delete notes[plot.id];
+            editor.remove();
+            updateStatus(`Note deleted for ${plot.dataset.x}/${plot.dataset.y}`);
+          });
+        }
+
+        // SAVE ALL NOTES
+        function saveNotes() {
+          localStorage.setItem('locExplorerNotes', JSON.stringify(notes));
+          updateStatus(`Saved ${Object.keys(notes).length} notes to local storage`);
+        }
+
+        // CLEAR CUSTOM COLORS
+        function clearCustomColors() {
+          if (confirm('Are you sure you want to clear all custom colors?')) {
+            localStorage.removeItem('locExplorerCustomColors');
+            document.querySelectorAll('.plot').forEach(plot => {
+              delete plot.dataset.customColor;
+              if (plot.classList.contains('loaded')) {
+                // Reapply resource color if loaded
+                if (plot.dataset.resources) {
+                  const resources = JSON.parse(plot.dataset.resources);
+                  if (resources.length) {
+                    plot.style.background = RESOURCE_COLORS[resources[0]];
+                  }
+                } else {
+                  plot.style.background = '';
+                }
+              } else {
+                plot.style.background = '';
+              }
+            });
+            updateStatus('Cleared all custom colors');
+          }
         }
 
         // ADD OR UPDATE A CELL
@@ -973,12 +1247,19 @@
           } else {
             el.style.background = ''; // leave default
           }
+          
           // stash tooltip text
           const dump = Object.entries(data)
+                         .filter(([k]) => !['id', 'owner'].includes(k))
                          .map(([k,v]) => `${k}: ${v}`)
                          .join('\n');
           el.dataset.tooltip = 
             `Coordinates: ${el.dataset.x}/${el.dataset.y}\n${dump}`;
+            
+          // Add note if exists
+          if (notes[el.id]) {
+            el.dataset.tooltip += `\n\nNotes:\n${notes[el.id]}`;
+          }
         }
 
         // SHOW PERSISTENT TOOLTIP
@@ -989,14 +1270,38 @@
           tip.className = 'tooltip';
           tip.dataset.owner = plot.id;
           tip.style.left = `${e.pageX + 12}px`;
-          tip.style.top  = `${e.pageY + 12}px`;
+          tip.style.top = `${e.pageY + 12}px`;
           const closeBtn = document.createElement('span');
           closeBtn.className = 'close-btn';
           closeBtn.textContent = '×';
           closeBtn.onclick = () => tip.remove();
           tip.appendChild(closeBtn);
+          
           const content = document.createElement('div');
           content.textContent = plot.dataset.tooltip || 'No data';
+          
+          // Add edit note button if we have data
+          if (plot.classList.contains('loaded')) {
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Edit Note (Alt+Click)';
+            editBtn.style.marginTop = '8px';
+            editBtn.style.padding = '4px 8px';
+            editBtn.style.background = '#444';
+            editBtn.style.border = 'none';
+            editBtn.style.borderRadius = '4px';
+            editBtn.style.color = '#fff';
+            editBtn.style.cursor = 'pointer';
+            editBtn.addEventListener('click', () => {
+              currentNoteCell = plot.id;
+              showNoteEditor(plot);
+              tip.remove();
+            });
+            
+            content.appendChild(document.createElement('br'));
+            content.appendChild(document.createElement('br'));
+            content.appendChild(editBtn);
+          }
+          
           tip.appendChild(content);
           document.body.appendChild(tip);
         }
@@ -1009,9 +1314,19 @@
           <div class="controls">
             <button id="modeToggleBtn">Switch to Bulk-100 Mode</button>
             <button id="loadMoreBtn" style="display:none;">Load More (100)</button>
-            <label title="Shift+Click to set custom color">
+            <select id="quadrantSelector">
+              <option value="all">All Quadrants</option>
+              <option value="nw">NW Quadrant</option>
+              <option value="ne">NE Quadrant</option>
+              <option value="sw">SW Quadrant</option>
+              <option value="se">SE Quadrant</option>
+            </select>
+            <button id="colorModeToggleBtn">Enter Color Mode</button>
+            <label title="Color for selected cells">
               Custom Color: <input type="color" id="colorPicker" value="#f39c12"/>
             </label>
+            <button id="saveNotesBtn">Save All Notes</button>
+            <button id="clearCustomColorsBtn">Clear Custom Colors</button>
           </div>
           <div class="status" id="status">
             Single-Cell Mode: click a cell to load its data…
