@@ -86,10 +86,10 @@
                 return (
                   <React.Fragment key={typeId}>
                     <tr
-                      className={`
-                        ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                      className={\`
+                        \${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
                         hover:bg-blue-50
-                      `}
+                      \`}
                     >
                       <td className="px-4 py-2 whitespace-nowrap">
                         <button
@@ -265,27 +265,46 @@
         if (quantityChart.current) quantityChart.current.destroy();
         if (listingChart.current)  listingChart.current.destroy();
 
+        const commonOpts = {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: context => {
+                  const label = context.label || '';
+                  const value = context.parsed;
+                  const total = context.chart._metasets[context.datasetIndex].total;
+                  const pct = ((value / total) * 100).toFixed(2) + '%';
+                  return `${label}: ${value} (${pct})`;
+                }
+              }
+            }
+          }
+        };
+
         quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
           type: 'pie',
           data: {
             labels,
-            datasets:[{
+            datasets: [{
               data: quantities,
               backgroundColor: palette.slice(0, labels.length)
             }]
           },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          options: commonOpts
         });
+
         listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
           type: 'pie',
           data: {
             labels,
-            datasets:[{
+            datasets: [{
               data: counts,
               backgroundColor: palette.slice(0, labels.length).reverse()
             }]
           },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          options: commonOpts
         });
       };
 
@@ -425,5 +444,6 @@
 
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
+
 </body>
 </html>
