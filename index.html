@@ -24,10 +24,7 @@
       50:'Mug Of Coffee', 52:'Moss', 53:'Garden Knife', 54:'Horse', 55:'Donkey'
     };
 
-    const PriceTable = ({
-      sortedPrices, onSort, sortConfig, previousPrices,
-      listingsMap, expandedIds, toggleExpand
-    }) => {
+    const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
       const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
       const toggleListingSort = key => {
         setListingSort(prev => ({
@@ -75,7 +72,6 @@
                   : '—';
                 const isOpen = expandedIds.has(typeId);
 
-                // sort individual listings
                 const listings = listingsMap[typeId] || [];
                 const sortedListings = [...listings].sort((a, b) => {
                   const A = parseFloat(a[listingSort.key]);
@@ -85,18 +81,9 @@
 
                 return (
                   <React.Fragment key={typeId}>
-                    <tr
-                      className={\`
-                        \${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                        hover:bg-blue-50
-                      \`}
-                    >
+                    <tr className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleExpand(typeId)}
-                          className="focus:outline-none text-blue-600"
-                          title="Show/hide individual listings"
-                        >
+                        <button onClick={() => toggleExpand(typeId)} className="focus:outline-none text-blue-600" title="Show/hide individual listings">
                           {isOpen ? '▼' : '▶'}
                         </button>
                       </td>
@@ -105,10 +92,7 @@
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {/* divide total amount by 1000 */}
-                        {(stats.totalAmount / 1000).toFixed(2)}
-                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">{(stats.totalAmount / 1000).toFixed(2)}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
@@ -124,16 +108,10 @@
                           <table className="min-w-full text-sm">
                             <thead className="bg-blue-200">
                               <tr>
-                                <th
-                                  className="px-2 py-1 text-left font-semibold cursor-pointer"
-                                  onClick={() => toggleListingSort('price')}
-                                >
+                                <th className="px-2 py-1 text-left font-semibold cursor-pointer" onClick={() => toggleListingSort('price')}>
                                   Price {listingSort.key === 'price' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
                                 </th>
-                                <th
-                                  className="px-2 py-1 text-left font-semibold cursor-pointer"
-                                  onClick={() => toggleListingSort('amount')}
-                                >
+                                <th className="px-2 py-1 text-left font-semibold cursor-pointer" onClick={() => toggleListingSort('amount')}>
                                   Amount {listingSort.key === 'amount' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
                                 </th>
                               </tr>
@@ -142,10 +120,7 @@
                               {sortedListings.map((item, i) => (
                                 <tr key={i} className={i % 2 === 0 ? 'bg-blue-50' : 'bg-blue-100'}>
                                   <td className="px-2 py-1">{item.price}</td>
-                                  <td className="px-2 py-1">
-                                    {/* divide each listing amount by 1000 */}
-                                    {(item.amount / 1000).toFixed(2)}
-                                  </td>
+                                  <td className="px-2 py-1">{(item.amount / 1000).toFixed(2)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -171,7 +146,6 @@
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
-
       const [showAd, setShowAd] = React.useState(false);
       const adTimerRef = React.useRef(null);
 
@@ -265,16 +239,17 @@
         if (quantityChart.current) quantityChart.current.destroy();
         if (listingChart.current)  listingChart.current.destroy();
 
-        const commonOpts = {
+        const commonOptions = {
           responsive: true,
           plugins: {
             legend: { position: 'bottom' },
             tooltip: {
               callbacks: {
-                label: context => {
+                label: function(context) {
                   const label = context.label || '';
                   const value = context.parsed;
-                  const total = context.chart._metasets[context.datasetIndex].total;
+                  const dataArr = context.chart.data.datasets[context.datasetIndex].data;
+                  const total = dataArr.reduce((sum, v) => sum + v, 0);
                   const pct = ((value / total) * 100).toFixed(2) + '%';
                   return `${label}: ${value} (${pct})`;
                 }
@@ -287,24 +262,18 @@
           type: 'pie',
           data: {
             labels,
-            datasets: [{
-              data: quantities,
-              backgroundColor: palette.slice(0, labels.length)
-            }]
+            datasets:[{ data: quantities, backgroundColor: palette.slice(0, labels.length) }]
           },
-          options: commonOpts
+          options: commonOptions
         });
 
         listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
           type: 'pie',
           data: {
             labels,
-            datasets: [{
-              data: counts,
-              backgroundColor: palette.slice(0, labels.length).reverse()
-            }]
+            datasets:[{ data: counts, backgroundColor: palette.slice(0, labels.length).reverse() }]
           },
-          options: commonOpts
+          options: commonOptions
         });
       };
 
