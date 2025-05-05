@@ -3,622 +3,369 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Prospectors Dashboard</title>
+  <title>Prospectors Grandland Resources Tracker </title>
   <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.development.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
-  <style>
-    /* Styles for the Loc Explorer */
-    .map-container {
-      position: relative;
-      width: 1000px;
-      margin: 0 auto;
-    }
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(100, 8px);
-      gap: 1px;
-      margin-top: 20px;
-      border: 2px solid #333;
-      padding: 10px;
-      background: #222;
-    }
-    .plot {
-      width: 8px;
-      height: 8px;
-      position: relative;
-      cursor: pointer;
-      background: #555;            /* unloaded */
-      transition: background 0.3s, transform 0.2s;
-    }
-    .plot.loading  { background: #3498db; } /* loading */
-    .plot.error    { background: #e74c3c; } /* error */
-    .plot:hover {
-      transform: scale(2);
-      z-index: 1000;
-      box-shadow: 0 0 5px rgba(255,255,255,0.5);
-    }
-    .plot[data-central="true"] {
-      border: 2px solid #f1c40f !important; /* central highlight */
-    }
-    .tooltip {
-      position: absolute;
-      background: rgba(0,0,0,0.9);
-      color: #fff;
-      padding: 8px 12px 8px 8px;
-      border-radius: 4px;
-      pointer-events: auto;
-      white-space: pre;
-      font-size: 12px;
-      max-width: 200px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
-      z-index: 1001;
-    }
-    .tooltip .close-btn {
-      position: absolute;
-      top: 2px;
-      right: 4px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .status {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      padding: 10px;
-      border-radius: 5px;
-      z-index: 1000;
-    }
-    #loadMoreBtn, #modeToggleBtn, #saveNotesBtn, #clearCustomColorsBtn {
-      padding: 8px 16px;
-      background: #444;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #loadMoreBtn:disabled, #modeToggleBtn:disabled, #saveNotesBtn:disabled {
-      background: #666;
-      cursor: default;
-    }
-    #colorPicker {
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      border: none;
-      cursor: pointer;
-      background: none;
-    }
-    /* Resource Key Styles */
-    #colorKey {
-      margin-top: 15px;
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 15px;
-    }
-    .key-item {
-      display: flex;
-      align-items: center;
-      font-size: 14px;
-    }
-    .color-swatch {
-      width: 15px;
-      height: 15px;
-      margin-right: 6px;
-      border: 1px solid #ccc;
-    }
-    /* Notes editor */
-    #notesEditor {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #333;
-      padding: 20px;
-      border-radius: 8px;
-      z-index: 1002;
-      width: 400px;
-      max-width: 90%;
-    }
-    #notesEditor textarea {
-      width: 100%;
-      height: 150px;
-      margin: 10px 0;
-      padding: 8px;
-      background: #222;
-      color: #fff;
-      border: 1px solid #444;
-    }
-    #notesEditor button {
-      margin-right: 10px;
-    }
-    #quadrantSelector {
-      padding: 6px;
-      background: #444;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-    }
-  </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
   <div id="root"></div>
 
   <script type="text/babel">
-    // Main App Component
-    const App = () => {
-      const [activeTab, setActiveTab] = React.useState('priceTracker');
-      
-      return (
-        <div className="container mx-auto p-6">
-          <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">
-            Prospectors Dashboard
-          </h1>
-          
-          <div className="flex justify-center space-x-4 mb-6">
-            <button
-              onClick={() => setActiveTab('priceTracker')}
-              className={`px-4 py-2 rounded ${activeTab === 'priceTracker' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-            >
-              Price Tracker
-            </button>
-            <button
-              onClick={() => setActiveTab('locExplorer')}
-              className={`px-4 py-2 rounded ${activeTab === 'locExplorer' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-            >
-              Loc Explorer
-            </button>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4">
-            {activeTab === 'priceTracker' ? <PriceTrackerApp /> : <LocExplorerApp />}
-          </div>
-        </div>
-      );
+    const RESOURCE_NAMES = {
+      2: 'Wood', 3: 'Stone', 4: 'Coal', 5: 'Clay', 6: 'Iron Ore', 7: 'Stone Block',
+      8: 'Stone Plate', 9: 'Wood Beam', 10: 'Wood Board', 11: 'Wood Girder', 12: 'Clay Brick', 13: 'Clay Tile', 14:'Steel Block', 15:'Iron Plate',
+      16:'Nails', 17:'Shovel', 18:'Spade', 19:'Pickax', 20:'Hammer', 21:'Sledgehammer',
+      22:'Axe', 23:'Saw', 24:'Gold Pan', 25:'Cart', 26:'Cart Body', 28:'Wagon', 31:'Coffee Beans', 
+      32:'Chisel', 33:'Pan', 34:'Spoon', 35:'Basket', 36:'Kettle', 37:'Rake', 38:'Nail Puller', 39:'Plane Tool', 40:'Stone Rubble', 41:'Steel Plate', 42:'Iron Rail', 43:'Tie Cotter', 44:'Rail Tie', 45:'Trolley', 48:'Roasted Coffee', 49:'Mug',
+      50:'Mug Of Coffee', 52:'Moss', 53:'Garden Knife', 54:'Horse', 55:'Donkey'
     };
 
-    // Price Tracker App (unchanged)
-    const PriceTrackerApp = () => {
-      const RESOURCE_NAMES = {
-        2:'Wood',3:'Stone',4:'Coal',5:'Clay',6:'Iron Ore',7:'Stone Block',
-        8:'Stone Plate',9:'Wood Beam',10:'Wood Board',11:'Wood Girder',12:'Clay Brick',
-        13:'Clay Tile',14:'Steel Block',15:'Iron Plate',16:'Nails',17:'Shovel',
-        18:'Spade',19:'Pickax',20:'Hammer',21:'Sledgehammer',22:'Axe',23:'Saw',
-        24:'Gold Pan',25:'Cart',26:'Cart Body',28:'Wagon',31:'Coffee Beans',
-        32:'Chisel',33:'Pan',34:'Spoon',35:'Basket',36:'Kettle',37:'Rake',
-        38:'Nail Puller',39:'Plane Tool',40:'Stone Rubble',41:'Steel Plate',
-        42:'Iron Rail',43:'Tie Cotter',44:'Rail Tie',45:'Trolley',48:'Roasted Coffee',
-        49:'Mug',50:'Mug Of Coffee',52:'Moss',53:'Garden Knife',54:'Horse',55:'Donkey'
+    const PriceTable = ({
+      sortedPrices, onSort, sortConfig, previousPrices,
+      listingsMap, expandedIds, toggleExpand
+    }) => {
+      const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
+      const toggleListingSort = key => {
+        setListingSort(prev => ({
+          key,
+          direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
       };
 
-      const ChevronRight = () => (
-        <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      );
-      const ChevronDown = () => (
-        <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      );
-
-      const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
-        const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
-        const toggleListingSort = key => {
-          setListingSort(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
-        };
-        const cols = ['resource','average','totalAmount','count','min','max','delta'];
-        const labels = { resource:'Resource', average:'Avg Price', totalAmount:'Total Amount', count:'Listings', min:'Min', max:'Max', delta:'Δ Price' };
-
-        return (
-          <div className="overflow-x-auto bg-white rounded-lg shadow">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-blue-100">
-                <tr>
-                  <th className="px-4 py-2"></th>
-                  {cols.map(key => (
-                    <th
-                      key={key}
-                      className="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider cursor-pointer select-none"
-                      onClick={() => key !== 'delta' && onSort(key)}
-                    >
-                      {labels[key]}
-                      {sortConfig.key === key ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ''}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sortedPrices.map(([typeId, stats], idx) => {
-                  const prev = previousPrices[typeId];
-                  const delta = prev != null ? (stats.average - prev).toFixed(2) : '—';
-                  const isOpen = expandedIds.has(typeId);
-                  const listings = listingsMap[typeId] || [];
-                  const sortedListings = [...listings].sort((a, b) => {
-                    const A = parseFloat(a[listingSort.key]);
-                    const B = parseFloat(b[listingSort.key]);
-                    return listingSort.direction === 'asc' ? A - B : B - A;
-                  });
-                  return (
-                    <React.Fragment key={typeId}>
-                      <tr className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <button onClick={() => toggleExpand(typeId)} className="focus:outline-none text-blue-600">
-                            {isOpen ? <ChevronDown/> : <ChevronRight/>}
-                          </button>
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap font-medium text-blue-800">
-                          {RESOURCE_NAMES[typeId] || 'Unknown'}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{stats.totalAmount}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <span className={delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : ''}>
-                            {delta}
-                          </span>
-                        </td>
-                      </tr>
-                      {isOpen && (
-                        <tr className="bg-blue-50">
-                          <td colSpan={cols.length + 1} className="px-4 py-2">
-                            <table className="min-w-full text-sm">
-                              <thead className="bg-blue-200">
-                                <tr>
-                                  <th
-                                    className="px-2 py-1 text-left font-semibold cursor-pointer"
-                                    onClick={() => toggleListingSort('price')}
-                                  >
-                                    Price {listingSort.key === 'price' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
-                                  </th>
-                                  <th
-                                    className="px-2 py-1 text-left font-semibold cursor-pointer"
-                                    onClick={() => toggleListingSort('amount')}
-                                  >
-                                    Amount {listingSort.key === 'amount' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {sortedListings.map((item, i) => (
-                                  <tr key={i} className={i % 2 === 0 ? 'bg-blue-50' : 'bg-blue-100'}>
-                                    <td className="px-2 py-1">{item.price}</td>
-                                    <td className="px-2 py-1">{item.amount}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-      };
-
-      const AuctionTable = ({ auctions }) => (
+      return (
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-green-100">
+            <thead className="bg-blue-100">
               <tr>
-                <th className="px-4 py-2 text-left">Location ID</th>
-                <th className="px-4 py-2 text-left">Owner</th>
-                <th className="px-4 py-2 text-left">Price</th>
-                <th className="px-4 py-2 text-left">End Time</th>
-                <th className="px-4 py-2 text-left">Bid User</th>
+                <th className="px-4 py-2"></th>
+                {['resource','typeId','average','totalAmount','count','min','max','delta']
+                  .map(key => {
+                    const labels = {
+                      resource:    'Resource',
+                      typeId:      'Type ID',
+                      average:     'Avg Price',
+                      totalAmount: 'Total Amount',
+                      count:       'Listings',
+                      min:         'Min',
+                      max:         'Max',
+                      delta:       'Δ Price'
+                    };
+                    return (
+                      <th
+                        key={key}
+                        className="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider cursor-pointer select-none"
+                        onClick={() => key !== 'delta' && onSort(key)}
+                      >
+                        {labels[key]}
+                        {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                      </th>
+                    );
+                  })}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {auctions.map((a, i) => (
-                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-4 py-2">{a.loc_id}</td>
-                  <td className="px-4 py-2">{a.owner}</td>
-                  <td className="px-4 py-2">{a.price}</td>
-                  <td className="px-4 py-2">{a.end_time}</td>
-                  <td className="px-4 py-2">{a.bid_user}</td>
-                </tr>
-              ))}
+              {sortedPrices.map(([typeId, stats], idx) => {
+                const prev = previousPrices[typeId];
+                const delta = prev != null
+                  ? (stats.average - prev).toFixed(2)
+                  : '—';
+                const isOpen = expandedIds.has(typeId);
+
+                // sort individual listings
+                const listings = listingsMap[typeId] || [];
+                const sortedListings = [...listings].sort((a, b) => {
+                  const A = parseFloat(a[listingSort.key]);
+                  const B = parseFloat(b[listingSort.key]);
+                  return listingSort.direction === 'asc' ? A - B : B - A;
+                });
+
+                return (
+                  <React.Fragment key={typeId}>
+                    <tr
+                      className={`
+                        ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        hover:bg-blue-50
+                      `}
+                    >
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <button
+                          onClick={() => toggleExpand(typeId)}
+                          className="focus:outline-none text-blue-600"
+                          title="Show/hide individual listings"
+                        >
+                          {isOpen ? '▼' : '▶'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap font-medium text-blue-800">
+                        {RESOURCE_NAMES[typeId] || 'Unknown'}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {/* divide total amount by 1000 */}
+                        {(stats.totalAmount / 1000).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <span className={delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : ''}>
+                          {delta}
+                        </span>
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr className="bg-blue-50">
+                        <td colSpan="9" className="px-4 py-2">
+                          <table className="min-w-full text-sm">
+                            <thead className="bg-blue-200">
+                              <tr>
+                                <th
+                                  className="px-2 py-1 text-left font-semibold cursor-pointer"
+                                  onClick={() => toggleListingSort('price')}
+                                >
+                                  Price {listingSort.key === 'price' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
+                                </th>
+                                <th
+                                  className="px-2 py-1 text-left font-semibold cursor-pointer"
+                                  onClick={() => toggleListingSort('amount')}
+                                >
+                                  Amount {listingSort.key === 'amount' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sortedListings.map((item, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-blue-50' : 'bg-blue-100'}>
+                                  <td className="px-2 py-1">{item.price}</td>
+                                  <td className="px-2 py-1">
+                                    {/* divide each listing amount by 1000 */}
+                                    {(item.amount / 1000).toFixed(2)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       );
+    };
 
-      const RawTable = ({ rows }) => {
-        if (!rows.length) return <div className="text-gray-500">No data available.</div>;
-        const cols = Object.keys(rows[0]);
-        return (
-          <div className="overflow-x-auto bg-white rounded-lg shadow">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
-                <tr>
-                  {cols.map(c => (
-                    <th key={c} className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">{c}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {rows.map((r, i) => (
-                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    {cols.map(c => (
-                      <td key={c} className="px-3 py-1 text-sm whitespace-nowrap">{String(r[c])}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      };
-
-      // State per tab
+    const App = () => {
       const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
-      const [auctions, setAuctions] = React.useState([]);
-      const [orderRows, setOrderRows] = React.useState([]);
-      const [railorderRows, setRailorderRows] = React.useState([]);
-
-      // paginated loc/worker
-      const [locRows, setLocRows] = React.useState([]);
-      const [locLB, setLocLB] = React.useState(null);
-      const [locHasMore, setLocHasMore] = React.useState(false);
-
-      const [workerRows, setWorkerRows] = React.useState([]);
-      const [workerLB, setWorkerLB] = React.useState(null);
-      const [workerHasMore, setWorkerHasMore] = React.useState(false);
-
-      // UI state
-      const [sortConfig, setSortConfig] = React.useState({key:'resource',direction:'asc'});
+      const [sortConfig, setSortConfig] = React.useState({key:'typeId',direction:'asc'});
       const [expandedIds, setExpandedIds] = React.useState(new Set());
-      const [activeTab, setActiveTab] = React.useState('market');
-      const [showAd, setShowAd] = React.useState(false);
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
-      const [lastUpdated, setLastUpdated] = React.useState({});
+      const [lastUpdated, setLastUpdated] = React.useState(null);
 
+      const [showAd, setShowAd] = React.useState(false);
       const adTimerRef = React.useRef(null);
+
+      const quantityChartRef = React.useRef(null);
+      const listingChartRef  = React.useRef(null);
+      const quantityChart    = React.useRef(null);
+      const listingChart     = React.useRef(null);
+
       const RPCS = [
         'https://wax.greymass.com',
         'https://apiwax.cryptolions.io',
         'https://wax.cryptolions.io'
       ];
 
-      // generic partial fetch
-      const fetchRows = async (tableName, limit=100, lower_bound=null) => {
-        const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:tableName, limit };
-        if (lower_bound != null) body.lower_bound = lower_bound;
-        for (const base of RPCS) {
-          try {
-            const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, {
-              headers:{ 'Content-Type':'application/json' }
-            });
-            return r.data.rows;
-          } catch {}
+      const fetchAllRows = async () => {
+        let all = [], lower_bound = null;
+        while (true) {
+          let chunk = null;
+          for (const base of RPCS) {
+            try {
+              const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:1000 };
+              if (lower_bound) body.lower_bound = lower_bound;
+              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body, {
+                headers:{ 'Content-Type':'application/json' }
+              });
+              chunk = r.data.rows;
+              break;
+            } catch {}
+          }
+          if (!chunk) throw new Error('All RPCs failed');
+          all = all.concat(chunk);
+          if (chunk.length < 1000) break;
+          lower_bound = chunk[chunk.length - 1].id;
         }
-        throw new Error('All RPCs failed');
+        return all;
       };
 
-      // market processors
-      const processMarket = rows => {
-        const b = {};
+      const process = rows => {
+        const buckets = {};
         rows.forEach(item => {
-          const id = item.stuff.type_id;
-          const p = parseFloat(item.price);
-          const a = parseFloat(item.stuff.amount);
-          if (!b[id]) b[id] = { prices:[], min:p, max:p, totalAmount:a };
-          else {
-            b[id].min = Math.min(b[id].min, p);
-            b[id].max = Math.max(b[id].max, p);
-            b[id].totalAmount += a;
+          const id     = item.stuff.type_id;
+          const price  = parseFloat(item.price);
+          const amount = parseFloat(item.stuff.amount);
+          if (!buckets[id]) {
+            buckets[id] = { prices:[], min:price, max:price, totalAmount:amount };
+          } else {
+            buckets[id].min = Math.min(buckets[id].min, price);
+            buckets[id].max = Math.max(buckets[id].max, price);
+            buckets[id].totalAmount += amount;
           }
-          b[id].prices.push(p);
+          buckets[id].prices.push(price);
         });
-        return Object.fromEntries(Object.entries(b).map(([id,o])=>{
-          const avg = o.prices.reduce((x,y)=>x+y,0)/o.prices.length;
-          return [id,{ average:+avg.toFixed(2), totalAmount:o.totalAmount, count:o.prices.length, min:+o.min.toFixed(2), max:+o.max.toFixed(2) }];
-        }));
+        return Object.fromEntries(
+          Object.entries(buckets).map(([id,b]) => {
+            const avg = b.prices.reduce((a,c)=>a+c,0)/b.prices.length;
+            return [id,{
+              average:     +avg.toFixed(2),
+              totalAmount: b.totalAmount,
+              count:       b.prices.length,
+              min:         +b.min.toFixed(2),
+              max:         +b.max.toFixed(2)
+            }];
+          })
+        );
       };
+
       const buildListingsMap = rows => {
-        const m = {};
+        const map = {};
         rows.forEach(item => {
-          const id = item.stuff.type_id;
-          const p = parseFloat(item.price).toFixed(2);
-          const a = parseFloat(item.stuff.amount);
-          m[id] = m[id]||[];
-          m[id].push({ price:p, amount:a });
+          const id     = item.stuff.type_id;
+          const price  = parseFloat(item.price).toFixed(2);
+          const amount = parseFloat(item.stuff.amount);
+          if (!map[id]) map[id] = [];
+          map[id].push({ price, amount });
         });
-        return m;
+        return map;
       };
 
-      // per-tab fetches
-      const fetchMarketData = async () => {
+      const drawPieCharts = () => {
+        const labels     = Object.keys(prices).map(id => RESOURCE_NAMES[id] || id);
+        const quantities = Object.values(prices).map(s => s.totalAmount);
+        const counts     = Object.values(prices).map(s => s.count);
+
+        const palette = [
+          '#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6',
+          '#EC4899','#22D3EE','#F472B6','#6366F1','#E879F9',
+          '#34D399','#F87171','#4ADE80','#FB923C','#A78BFA',
+          '#F9A8D4'
+        ];
+
+        if (quantityChart.current) quantityChart.current.destroy();
+        if (listingChart.current)  listingChart.current.destroy();
+
+        quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
+          type: 'pie',
+          data: {
+            labels,
+            datasets:[{
+              data: quantities,
+              backgroundColor: palette.slice(0, labels.length)
+            }]
+          },
+          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+        });
+        listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
+          type: 'pie',
+          data: {
+            labels,
+            datasets:[{
+              data: counts,
+              backgroundColor: palette.slice(0, labels.length).reverse()
+            }]
+          },
+          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+        });
+      };
+
+      const fetchData = async () => {
+        setIsLoading(true);
         setErrorMsg(null);
         try {
-          const rows = await fetchRows('market',1000,null);
-          setPrices(processMarket(rows));
+          const rows = await fetchAllRows();
+          const proc = process(rows);
+          setPrices(proc);
           setListingsMap(buildListingsMap(rows));
-          setLastUpdated(prev => ({ ...prev, market: new Date() }));
-        } catch(e){ setErrorMsg(e.message); }
+          setLastUpdated(new Date());
+        } catch (e) {
+          setErrorMsg(e.message);
+        } finally {
+          setIsLoading(false);
+        }
       };
 
-      const fetchAuctionData = async () => {
-        setErrorMsg(null);
-        try {
-          const rows = await fetchRows('auction',1000,null);
-          setAuctions(rows.map(item => ({
-            loc_id:item.loc_id, owner:item.owner,
-            price:parseFloat(item.price).toFixed(2),
-            end_time:item.end_time, bid_user:item.bid_user||'-'
-          })));
-          setLastUpdated(prev => ({ ...prev, auctions: new Date() }));
-        } catch(e){ setErrorMsg(e.message); }
+      const handleRefresh = () => {
+        if (isLoading || showAd) return;
+        setShowAd(true);
+        adTimerRef.current = setTimeout(() => {
+          setShowAd(false);
+          fetchData();
+        }, 3000);
       };
 
-      const fetchOrderData = async () => {
-        setErrorMsg(null);
-        try {
-          const rows = await fetchRows('order',1000,null);
-          setOrderRows(rows);
-          setLastUpdated(prev => ({ ...prev, order: new Date() }));
-        } catch(e){ setErrorMsg(e.message); }
-      };
-
-      const fetchRailorderData = async () => {
-        setErrorMsg(null);
-        try {
-          const rows = await fetchRows('railorder',1000,null);
-          setRailorderRows(rows);
-          setLastUpdated(prev => ({ ...prev, railorder: new Date() }));
-        } catch(e){ setErrorMsg(e.message); }
-      };
-
-      // paginated fetchers for loc & worker
-      const fetchLocPage = async (reset=false) => {
-        setErrorMsg(null);
-        try {
-          const lb = reset ? null : locLB;
-          const rows = await fetchRows('loc',100, lb);
-          setLocRows(reset ? rows : prev=>[...prev, ...rows]);
-          if (rows.length===100) {
-            setLocLB(rows[rows.length-1].id);
-            setLocHasMore(true);
-          } else {
-            setLocHasMore(false);
-          }
-          setLastUpdated(prev => ({ ...prev, loc: new Date() }));
-        } catch(e){ setErrorMsg(e.message); }
-      };
-
-      const fetchWorkerPage = async (reset=false) => {
-        setErrorMsg(null);
-        try {
-          const lb = reset ? null : workerLB;
-          const rows = await fetchRows('worker',100, lb);
-          setWorkerRows(reset ? rows : prev=>[...prev, ...rows]);
-          if (rows.length===100) {
-            setWorkerLB(rows[rows.length-1].id);
-            setWorkerHasMore(true);
-          } else {
-            setWorkerHasMore(false);
-          }
-          setLastUpdated(prev => ({ ...prev, worker: new Date() }));
-        } catch(e){ setErrorMsg(e.message); }
-      };
-
-      // on mount load market
+      React.useEffect(fetchData, []);
       React.useEffect(() => {
-        fetchMarketData();
-      }, []);
+        if (Object.keys(prices).length) drawPieCharts();
+      }, [prices]);
 
-      // sort market
-      const sorted = React.useMemo(()=>{
-        return Object.entries(prices).sort((a,b)=>{
+      const sorted = React.useMemo(() => {
+        const arr = Object.entries(prices);
+        return arr.sort((a,b) => {
           let A,B;
-          if (sortConfig.key==='resource') {
-            A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]];
-          } else {
-            A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
+          switch(sortConfig.key) {
+            case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
+            case 'typeId':   A=+a[0]; B=+b[0]; break;
+            default:         A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
           }
-          if (A<B) return sortConfig.direction==='asc'? -1:1;
-          if (A>B) return sortConfig.direction==='asc'? 1:-1;
+          if (A<B) return sortConfig.direction==='asc' ? -1 : 1;
+          if (A>B) return sortConfig.direction==='asc' ? 1 : -1;
           return 0;
         });
-      },[prices,sortConfig]);
+      }, [prices, sortConfig]);
 
       const toggleExpand = id => {
-        setExpandedIds(prev=>{
-          const s=new Set(prev);
-          s.has(id)? s.delete(id): s.add(id);
+        setExpandedIds(prev => {
+          const s = new Set(prev);
+          s.has(id)? s.delete(id) : s.add(id);
           return s;
         });
       };
 
-      // unified refresh per tab
-      const handleRefresh = () => {
-        if (isLoading||showAd) return;
-        setShowAd(true);
-        adTimerRef.current = setTimeout(async ()=>{
-          setShowAd(false);
-          setIsLoading(true);
-          switch(activeTab){
-            case 'market': await fetchMarketData(); break;
-            case 'auctions': await fetchAuctionData(); break;
-            case 'loc': await fetchLocPage(true); break;
-            case 'order': await fetchOrderData(); break;
-            case 'railorder': await fetchRailorderData(); break;
-            case 'worker': await fetchWorkerPage(true); break;
-            default: break;
-          }
-          setIsLoading(false);
-        },3000);
-      };
-
       return (
-        <div className="relative">
+        <div className="container mx-auto p-6 relative">
           {showAd && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-yellow-200 p-6 rounded-lg shadow-lg text-center space-y-4">
                 <p className="text-lg font-bold">Advertisement</p>
-                <p>🔥 Found this app useful? Consider donating PGL or WAX to: sklam.wam 🔥</p>
+                <p>🔥 Found this app useful? Please consider donating some PGL or WAX to Wax account: sklam.wam 🔥</p>
                 <button
-                  onClick={()=>{ clearTimeout(adTimerRef.current); setShowAd(false); handleRefresh(); }}
+                  onClick={() => {
+                    clearTimeout(adTimerRef.current);
+                    setShowAd(false);
+                    fetchData();
+                  }}
                   className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
-                  Skip Ad & Refresh
+                  Skip Ad &amp; Refresh
                 </button>
               </div>
             </div>
           )}
 
-          <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">
-            Prospectors Price Tracker (Grandland)
-          </h1>
+          <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">Prospectors Grandland Price Tracker </h1>
 
-          <div className="flex flex-wrap justify-center space-x-2 mb-4">
-            {['market','auctions','loc','order','railorder','worker'].map(tab=>{
-              const labels = { market:'Market', auctions:'Auctions', loc:'Loc', order:'Order', railorder:'RailOrder', worker:'Worker' };
-              const colors = {
-                market:'bg-blue-600 text-white', auctions:'bg-green-600 text-white',
-                loc:'bg-purple-600 text-white', order:'bg-indigo-600 text-white',
-                railorder:'bg-yellow-600 text-white', worker:'bg-pink-600 text-white'
-              };
-              return (
-                <button
-                  key={tab}
-                  onClick={()=>{
-                    setActiveTab(tab);
-                    if(tab==='loc' && locRows.length===0) fetchLocPage(true);
-                    if(tab==='worker' && workerRows.length===0) fetchWorkerPage(true);
-                    if(tab==='auctions' && auctions.length===0) fetchAuctionData();
-                    if(tab==='order' && orderRows.length===0) fetchOrderData();
-                    if(tab==='railorder' && railorderRows.length===0) fetchRailorderData();
-                  }}
-                  className={`px-3 py-2 rounded ${activeTab===tab? colors[tab] : 'bg-gray-200 text-gray-700'}`}
-                >
-                  {labels[tab]}
-                </button>
-              );
-            })}
-
+          <div className="flex justify-center space-x-4 mb-4">
             <button
               onClick={handleRefresh}
               disabled={isLoading}
@@ -626,731 +373,56 @@
             >
               {isLoading ? 'Refreshing…' : 'Refresh'}
             </button>
-
-            {lastUpdated[activeTab] && (
-              <span className="self-center text-gray-600 ml-4">
-                Last refreshed: {lastUpdated[activeTab].toLocaleString()}
+            {lastUpdated && (
+              <span className="self-center text-gray-600">
+                Last refreshed: {lastUpdated.toLocaleString()}
               </span>
             )}
           </div>
-
           {errorMsg && (
             <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>
           )}
 
-          {activeTab==='market' && (
-            <section className="mb-12">
-              <h2 className="text-2xl font-semibold mb-4 text-blue-700">
-                Latest Listings And Prices
-              </h2>
-              {sorted.length
-                ? <PriceTable
-                    sortedPrices={sorted}
-                    onSort={k=>setSortConfig(prev=>({ key:k, direction: prev.key===k&&prev.direction==='asc'?'desc':'asc' }))}
-                    sortConfig={sortConfig}
-                    previousPrices={previousPrices}
-                    listingsMap={listingsMap}
-                    expandedIds={expandedIds}
-                    toggleExpand={toggleExpand}
-                  />
-                : <div className="text-gray-500">No data available.</div>
-              }
-            </section>
-          )}
+          <section className="mb-12">
+            <h2 className="text-2xl font-semibold mb-4 text-blue-700">Latest Listings And Prices</h2>
+            {sorted.length
+              ? <PriceTable
+                  sortedPrices={sorted}
+                  onSort={k=>setSortConfig(prev=>({
+                    key:k,
+                    direction: prev.key===k&&prev.direction==='asc'?'desc':'asc'
+                  }))}
+                  sortConfig={sortConfig}
+                  previousPrices={previousPrices}
+                  listingsMap={listingsMap}
+                  expandedIds={expandedIds}
+                  toggleExpand={toggleExpand}
+                />
+              : <div className="text-gray-500">No data available.</div>
+            }
+          </section>
 
-          {activeTab==='auctions' && (
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 text-green-700">
-                Current Auctions
-              </h2>
-              {auctions.length
-                ? <AuctionTable auctions={auctions}/>
-                : <div className="text-gray-500">No auction data available.</div>
-              }
-            </section>
-          )}
-
-          {activeTab==='loc' && (
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 text-purple-700">
-                Table: loc (paginated)
-              </h2>
-              <RawTable rows={locRows}/>
-              {locHasMore && (
-                <button
-                  onClick={()=>fetchLocPage(false)}
-                  className="mt-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                >
-                  Load More (100)
-                </button>
-              )}
-            </section>
-          )}
-
-          {activeTab==='order' && (
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 text-indigo-700">Table: order</h2>
-              <RawTable rows={orderRows}/>
-            </section>
-          )}
-
-          {activeTab==='railorder' && (
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 text-yellow-700">Table: railorder</h2>
-              <RawTable rows={railorderRows}/>
-            </section>
-          )}
-
-          {activeTab==='worker' && (
-            <section>
-              <h2 className="text-2xl font-semibold mb-4 text-pink-700">
-                Table: worker (paginated)
-              </h2>
-              <RawTable rows={workerRows}/>
-              {workerHasMore && (
-                <button
-                  onClick={()=>fetchWorkerPage(false)}
-                  className="mt-4 px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700"
-                >
-                  Load More (100)
-                </button>
-              )}
-            </section>
-          )}
+          <section>
+            <h2 className="text-2xl font-semibold mb-4 text-blue-700">Resource Breakdown</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h3 className="text-lg font-medium mb-2">Total Quantity (%)</h3>
+                <canvas ref={quantityChartRef}></canvas>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h3 className="text-lg font-medium mb-2">Total Listings (%)</h3>
+                <canvas ref={listingChartRef}></canvas>
+              </div>
+            </div>
+          </section>
 
           <footer className="mt-12 text-center text-gray-500">
-            Powered by WAX Blockchain | Deployed on Vercel
+            Powered by WAX Blockchain | Deployed on Vercel | Prospectors game Fansite by: Cryptoartist (sklam.wam)
           </footer>
         </div>
       );
     };
 
-    // Loc Explorer App with all new features
-    const LocExplorerApp = () => {
-      React.useEffect(() => {
-        // RESOURCE‐TYPE PALETTE
-        const RESOURCE_COLORS = {
-          wood:  '#27ae60',
-          stone: '#7f8c8d',
-          gold:  '#f1c40f',
-          coal:  '#34495e',
-          clay:  '#d35400',
-          ore:   '#c0392b'
-        };
-
-        // CONFIGURATION
-        const GRID_SIZE = 100;
-        const CENTRAL_PLOT = { x: 50, y: 50 };
-        const ENDPOINTS = [
-          'https://api.wax.alohaeos.com',
-          'https://wax.greymass.com',
-          'https://wax.eosn.io'
-        ];
-
-        // STATE
-        let isSingleMode = true;
-        let allRows = [], locLB = null, locHasMore = true;
-        let cachedData = null, lastUpdate = null;
-        let selectedQuadrant = 'all';
-        let currentNoteCell = null;
-        let isColorSelectionMode = false;
-
-        // Load saved data from localStorage
-        function loadSavedData() {
-          const savedColors = localStorage.getItem('locExplorerCustomColors');
-          const savedNotes = localStorage.getItem('locExplorerNotes');
-          const savedCache = localStorage.getItem('cachedLocData');
-          const savedCacheTime = localStorage.getItem('lastLocUpdate');
-          
-          if (savedColors) {
-            try {
-              const colors = JSON.parse(savedColors);
-              Object.entries(colors).forEach(([id, color]) => {
-                const el = document.getElementById(id);
-                if (el) {
-                  el.dataset.customColor = color;
-                  el.style.background = color;
-                }
-              });
-            } catch (e) {
-              console.error('Error loading custom colors:', e);
-            }
-          }
-          
-          if (savedNotes) {
-            try {
-              return JSON.parse(savedNotes);
-            } catch (e) {
-              console.error('Error loading notes:', e);
-              return {};
-            }
-          }
-          
-          if (savedCache && savedCacheTime) {
-            try {
-              cachedData = JSON.parse(savedCache);
-              lastUpdate = Number(savedCacheTime);
-            } catch (e) {
-              console.error('Error loading cache:', e);
-            }
-          }
-          
-          return {};
-        }
-
-        // Initialize notes object
-        const notes = loadSavedData();
-
-        // UTILITIES
-        function updateStatus(msg) {
-          document.getElementById('status').textContent = msg;
-        }
-
-        function resetGrid() {
-          document.querySelectorAll('.plot').forEach(el => {
-            el.className = 'plot';
-            if (!el.dataset.customColor) {
-              el.style.background = '';
-            }
-            delete el.dataset.tooltip;
-            delete el.dataset.resources;
-            delete el.dataset.resourceIndex;
-          });
-          document.querySelectorAll('.tooltip').forEach(t => t.remove());
-        }
-
-        // FETCH HELPERS
-        async function fetchSingleLoc(cellId) {
-          const body = {
-            json:true, code:'prospectorsn', scope:'prospectorsn',
-            table:'loc', limit:1, lower_bound:cellId
-          };
-          for (const rpc of ENDPOINTS) {
-            try {
-              const { data } = await axios.post(`${rpc}/v1/chain/get_table_rows`, body, {
-                headers:{'Content-Type':'application/json'}
-              });
-              if (data.rows?.length) return data.rows[0];
-            } catch {} 
-          }
-          throw new Error('All RPCs failed');
-        }
-
-        async function fetchRows(tableName, limit=100, lower_bound=null) {
-          const body = {
-            json:true, code:'prospectorsn', scope:'prospectorsn',
-            table:tableName, limit
-          };
-          if (lower_bound != null) body.lower_bound = lower_bound;
-          for (const rpc of ENDPOINTS) {
-            try {
-              const { data } = await axios.post(`${rpc}/v1/chain/get_table_rows`, body, {
-                headers:{'Content-Type':'application/json'}
-              });
-              if (data.rows) return data.rows;
-            } catch {}
-          }
-          throw new Error('All RPCs failed');
-        }
-
-        // BULK MODE HANDLERS
-        function loadCachedData() {
-          if (cachedData && lastUpdate) {
-            const first = cachedData.slice(0,100);
-            allRows = first;
-            locLB = first.length===100 ? first[first.length-1].id : null;
-            locHasMore = cachedData.length > 100;
-            processData(allRows);
-            updateStatus(
-              `Bulk Mode: loaded cache (${new Date(lastUpdate).toLocaleString()})`
-            );
-            updateButton();
-          }
-        }
-
-        async function loadMoreLocData() {
-          const btn = document.getElementById('loadMoreBtn');
-          btn.disabled = true;
-          updateStatus(`Bulk Mode: loading next 100 from quadrant ${selectedQuadrant}...`);
-          
-          try {
-            let rows;
-            if (selectedQuadrant === 'all') {
-              rows = await fetchRows('loc', 100, locLB);
-            } else {
-              // For quadrant-specific loading, we need to calculate bounds
-              const quadrantBounds = {
-                'nw': { minX: -50, maxX: -1, minY: 1, maxY: 50 },
-                'ne': { minX: 1, maxX: 50, minY: 1, maxY: 50 },
-                'sw': { minX: -50, maxX: -1, minY: -50, maxY: -1 },
-                'se': { minX: 1, maxX: 50, minY: -50, maxY: -1 }
-              };
-              const bounds = quadrantBounds[selectedQuadrant];
-              
-              // Fetch all and filter (this is inefficient but works with current API)
-              rows = await fetchRows('loc', 1000, locLB);
-              rows = rows.filter(row => {
-                const n = BigInt(row.id);
-                const x = Number((n >> 16n) & 0xFFFFn);
-                const y = Number(n & 0xFFFFn);
-                return x >= bounds.minX && x <= bounds.maxX && 
-                       y >= bounds.minY && y <= bounds.maxY;
-              }).slice(0, 100); // Take first 100 that match
-            }
-            
-            if (rows.length) {
-              allRows.push(...rows);
-              rows.forEach(addOrUpdatePlot);
-              locLB = rows.length===100 ? rows[rows.length-1].id : null;
-              locHasMore = rows.length===100;
-              
-              // Update cache if we're not using it
-              if (!cachedData) {
-                lastUpdate = Date.now();
-                localStorage.setItem('cachedLocData', JSON.stringify(allRows));
-                localStorage.setItem('lastLocUpdate', lastUpdate);
-              }
-            } else {
-              locHasMore = false;
-            }
-            updateStatus(`Bulk Mode: ${allRows.length} rows loaded (Quadrant: ${selectedQuadrant})`);
-          } catch (e) {
-            updateStatus('Bulk Mode: error loading - ' + e.message);
-          }
-          
-          updateButton();
-        }
-
-        function updateButton() {
-          const btn = document.getElementById('loadMoreBtn');
-          btn.disabled = !locHasMore;
-          btn.textContent = locHasMore
-            ? `Load More (100) - ${selectedQuadrant.toUpperCase()}`
-            : `All Loaded (${allRows.length})`;
-        }
-
-        function processData(rows) {
-          rows.forEach(addOrUpdatePlot);
-        }
-
-        // COLOR KEY RENDER
-        function createColorKey() {
-          const keyDiv = document.getElementById('colorKey');
-          keyDiv.innerHTML = ''; // Clear existing
-          
-          // Resource colors
-          for (const [res, col] of Object.entries(RESOURCE_COLORS)) {
-            const item = document.createElement('div');
-            item.className = 'key-item';
-            item.innerHTML = `<div class="color-swatch" style="background:${col}"></div>${res.charAt(0).toUpperCase()+res.slice(1)}`;
-            keyDiv.appendChild(item);
-          }
-          
-          // Custom color indicator
-          const customItem = document.createElement('div');
-          customItem.className = 'key-item';
-          customItem.innerHTML = `<div class="color-swatch" style="background:#f39c12"></div>Custom Color`;
-          keyDiv.appendChild(customItem);
-        }
-
-        // GRID INITIALIZATION
-        function init() {
-          const grid = document.getElementById('grid'),
-                frag = document.createDocumentFragment();
-
-          for (let y = 0; y < GRID_SIZE; y++) {
-            for (let x = 0; x < GRID_SIZE; x++) {
-              frag.appendChild(createPlot(x, y));
-            }
-          }
-          grid.appendChild(frag);
-
-          // Mode toggle
-          document.getElementById('modeToggleBtn')
-            .addEventListener('click', () => {
-              isSingleMode = !isSingleMode;
-              resetGrid();
-              document.getElementById('loadMoreBtn').style.display = isSingleMode ? 'none' : '';
-              document.getElementById('modeToggleBtn').textContent = isSingleMode
-                ? 'Switch to Bulk-100 Mode'
-                : 'Switch to Single-Cell Mode';
-
-              if (isSingleMode) {
-                updateStatus('Single-Cell Mode: click a cell to load its data…');
-              } else {
-                loadCachedData();
-                if (!cachedData) loadMoreLocData();
-              }
-            });
-
-          // Bulk load
-          document.getElementById('loadMoreBtn')
-            .addEventListener('click', loadMoreLocData);
-
-          // Quadrant selector
-          document.getElementById('quadrantSelector')
-            .addEventListener('change', (e) => {
-              selectedQuadrant = e.target.value;
-              updateButton();
-            });
-
-          // Color picker mode toggle
-          document.getElementById('colorModeToggleBtn')
-            .addEventListener('click', () => {
-              isColorSelectionMode = !isColorSelectionMode;
-              const btn = document.getElementById('colorModeToggleBtn');
-              btn.textContent = isColorSelectionMode 
-                ? 'Exit Color Mode' 
-                : 'Enter Color Mode';
-              btn.style.backgroundColor = isColorSelectionMode ? '#f39c12' : '#444';
-              updateStatus(isColorSelectionMode 
-                ? 'Color Mode: Click cells to apply custom color' 
-                : 'Exited Color Mode');
-            });
-
-          // Save notes button
-          document.getElementById('saveNotesBtn')
-            .addEventListener('click', saveNotes);
-
-          // Clear custom colors button
-          document.getElementById('clearCustomColorsBtn')
-            .addEventListener('click', clearCustomColors);
-
-          // start in single mode
-          document.getElementById('loadMoreBtn').style.display = 'none';
-
-          // draw color key
-          createColorKey();
-        }
-
-        // CREATE ONE CELL
-        function createPlot(x, y) {
-          const plot = document.createElement('div');
-          plot.className = 'plot';
-          const coordX = x - CENTRAL_PLOT.x,
-                coordY = CENTRAL_PLOT.y - y,
-                key = ((BigInt(coordX & 0xFFFF) << 16n) |
-                       BigInt(coordY & 0xFFFF)).toString();
-          plot.dataset.x = coordX;
-          plot.dataset.y = coordY;
-          plot.id = key;
-          if (x === CENTRAL_PLOT.x && y === CENTRAL_PLOT.y) {
-            plot.dataset.central = "true";
-          }
-
-          // Load custom color if exists
-          const savedColors = JSON.parse(localStorage.getItem('locExplorerCustomColors') || '{}');
-          if (savedColors[key]) {
-            plot.dataset.customColor = savedColors[key];
-            plot.style.background = savedColors[key];
-          }
-
-          // Mouse enter event for hover tooltip
-          plot.addEventListener('mouseenter', (e) => {
-            showHoverTooltip(e, plot);
-          });
-
-          // Mouse leave event to remove hover tooltip
-          plot.addEventListener('mouseleave', () => {
-            document.querySelectorAll('.hover-tooltip').forEach(t => t.remove());
-          });
-
-          // Click event handler
-          plot.addEventListener('click', async e => {
-            // Check if we're in color selection mode
-            if (isColorSelectionMode) {
-              const picker = document.getElementById('colorPicker');
-              plot.dataset.customColor = picker.value;
-              plot.style.background = picker.value;
-              
-              // Save to localStorage
-              const savedColors = JSON.parse(localStorage.getItem('locExplorerCustomColors') || {});
-              savedColors[plot.id] = picker.value;
-              localStorage.setItem('locExplorerCustomColors', JSON.stringify(savedColors));
-              return;
-            }
-
-            // Check if we're in note editing mode (Alt+Click)
-            if (e.altKey) {
-              currentNoteCell = plot.id;
-              showNoteEditor(plot);
-              return;
-            }
-
-            const picker = document.getElementById('colorPicker');
-            
-            // CTRL+CLICK → cycle through resources if present
-            if (e.ctrlKey && plot.dataset.resources) {
-              const resources = JSON.parse(plot.dataset.resources);
-              let idx = Number(plot.dataset.resourceIndex)||0;
-              idx = (idx + 1) % resources.length;
-              plot.dataset.resourceIndex = idx;
-              const res = resources[idx];
-              plot.style.background = RESOURCE_COLORS[res];
-              updateStatus(`Showing ${res} on ${plot.dataset.x}/${plot.dataset.y}`);
-              return;
-            }
-
-            if (isSingleMode) {
-              plot.classList.remove('loaded','error');
-              plot.classList.add('loading');
-              updateStatus(`Fetching ${coordX}/${coordY}…`);
-              try {
-                const data = await fetchSingleLoc(key);
-                applyCellData(plot, data);
-                plot.classList.replace('loading','loaded');
-                showTooltip(e, plot);
-                updateStatus(`Loaded ${coordX}/${coordY}`);
-              } catch {
-                plot.classList.replace('loading','error');
-                updateStatus('Error fetching');
-              }
-            } else {
-              showTooltip(e, plot);
-            }
-          });
-
-          return plot;
-        }
-
-        // SHOW HOVER TOOLTIP
-        function showHoverTooltip(e, plot) {
-          // Remove any existing hover tooltips
-          document.querySelectorAll('.hover-tooltip').forEach(t => t.remove());
-          
-          const tip = document.createElement('div');
-          tip.className = 'tooltip hover-tooltip';
-          tip.style.left = `${e.pageX + 12}px`;
-          tip.style.top = `${e.pageY + 12}px`;
-          
-          const content = document.createElement('div');
-          const coords = `Coordinates: ${plot.dataset.x}/${plot.dataset.y}`;
-          
-          // Add note if exists
-          const noteContent = notes[plot.id] ? `\n\nNotes:\n${notes[plot.id]}` : '';
-          
-          // Add custom color indicator if exists
-          const colorContent = plot.dataset.customColor 
-            ? `\n\nCustom Color: ${plot.dataset.customColor}` 
-            : '';
-          
-          content.textContent = coords + noteContent + colorContent;
-          tip.appendChild(content);
-          document.body.appendChild(tip);
-        }
-
-        // SHOW NOTE EDITOR
-        function showNoteEditor(plot) {
-          // Remove any existing editors
-          const existingEditor = document.getElementById('notesEditor');
-          if (existingEditor) existingEditor.remove();
-          
-          const editor = document.createElement('div');
-          editor.id = 'notesEditor';
-          editor.innerHTML = `
-            <h3>Edit Notes for ${plot.dataset.x}/${plot.dataset.y}</h3>
-            <textarea id="noteTextArea">${notes[plot.id] || ''}</textarea>
-            <div>
-              <button id="saveNoteBtn">Save Note</button>
-              <button id="cancelNoteBtn">Cancel</button>
-              <button id="deleteNoteBtn">Delete Note</button>
-            </div>
-          `;
-          document.body.appendChild(editor);
-          
-          // Event listeners for editor buttons
-          document.getElementById('saveNoteBtn').addEventListener('click', () => {
-            const text = document.getElementById('noteTextArea').value;
-            if (text.trim()) {
-              notes[plot.id] = text;
-            } else {
-              delete notes[plot.id];
-            }
-            editor.remove();
-            updateStatus(`Note ${text.trim() ? 'saved' : 'removed'} for ${plot.dataset.x}/${plot.dataset.y}`);
-          });
-          
-          document.getElementById('cancelNoteBtn').addEventListener('click', () => {
-            editor.remove();
-          });
-          
-          document.getElementById('deleteNoteBtn').addEventListener('click', () => {
-            delete notes[plot.id];
-            editor.remove();
-            updateStatus(`Note deleted for ${plot.dataset.x}/${plot.dataset.y}`);
-          });
-        }
-
-        // SAVE ALL NOTES
-        function saveNotes() {
-          localStorage.setItem('locExplorerNotes', JSON.stringify(notes));
-          updateStatus(`Saved ${Object.keys(notes).length} notes to local storage`);
-        }
-
-        // CLEAR CUSTOM COLORS
-        function clearCustomColors() {
-          if (confirm('Are you sure you want to clear all custom colors?')) {
-            localStorage.removeItem('locExplorerCustomColors');
-            document.querySelectorAll('.plot').forEach(plot => {
-              delete plot.dataset.customColor;
-              if (plot.classList.contains('loaded')) {
-                // Reapply resource color if loaded
-                if (plot.dataset.resources) {
-                  const resources = JSON.parse(plot.dataset.resources);
-                  if (resources.length) {
-                    plot.style.background = RESOURCE_COLORS[resources[0]];
-                  }
-                } else {
-                  plot.style.background = '';
-                }
-              } else {
-                plot.style.background = '';
-              }
-            });
-            updateStatus('Cleared all custom colors');
-          }
-        }
-
-        // ADD OR UPDATE A CELL
-        function addOrUpdatePlot(item) {
-          const n = BigInt(item.id),
-                x = Number((n >> 16n) & 0xFFFFn),
-                y = Number(n & 0xFFFFn),
-                gx = x + CENTRAL_PLOT.x,
-                gy = CENTRAL_PLOT.y - y;
-          if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return;
-          const idx = gy * GRID_SIZE + gx,
-                el = document.getElementsByClassName('plot')[idx];
-          el.classList.remove('error','loading');
-          el.classList.add('loaded');
-          applyCellData(el, item);
-        }
-
-        // APPLY DATA, PICK RESOURCE COLOR OR CUSTOM
-        function applyCellData(el, data) {
-          // determine which resources present and quantities
-          const resources = Object.keys(RESOURCE_COLORS)
-            .filter(r => Number(data[r]||0) > 0);
-          el.dataset.resources = JSON.stringify(resources);
-          el.dataset.resourceIndex = 0;
-
-          // custom override
-          if (el.dataset.customColor) {
-            el.style.background = el.dataset.customColor;
-          }
-          // resource palette
-          else if (resources.length) {
-            // default to highest-qty
-            resources.sort((a,b) => Number(data[b]) - Number(data[a]));
-            const primary = resources[0];
-            el.style.background = RESOURCE_COLORS[primary];
-          } else {
-            el.style.background = ''; // leave default
-          }
-          
-          // stash tooltip text
-          const dump = Object.entries(data)
-                         .filter(([k]) => !['id', 'owner'].includes(k))
-                         .map(([k,v]) => `${k}: ${v}`)
-                         .join('\n');
-          el.dataset.tooltip = 
-            `Coordinates: ${el.dataset.x}/${el.dataset.y}\n${dump}`;
-            
-          // Add note if exists
-          if (notes[el.id]) {
-            el.dataset.tooltip += `\n\nNotes:\n${notes[el.id]}`;
-          }
-        }
-
-        // SHOW PERSISTENT TOOLTIP
-        function showTooltip(e, plot) {
-          document.querySelectorAll(`.tooltip[data-owner="${plot.id}"]`)
-                  .forEach(t => t.remove());
-          const tip = document.createElement('div');
-          tip.className = 'tooltip';
-          tip.dataset.owner = plot.id;
-          tip.style.left = `${e.pageX + 12}px`;
-          tip.style.top = `${e.pageY + 12}px`;
-          const closeBtn = document.createElement('span');
-          closeBtn.className = 'close-btn';
-          closeBtn.textContent = '×';
-          closeBtn.onclick = () => tip.remove();
-          tip.appendChild(closeBtn);
-          
-          const content = document.createElement('div');
-          content.textContent = plot.dataset.tooltip || 'No data';
-          
-          // Add edit note button if we have data
-          if (plot.classList.contains('loaded')) {
-            const editBtn = document.createElement('button');
-            editBtn.textContent = 'Edit Note (Alt+Click)';
-            editBtn.style.marginTop = '8px';
-            editBtn.style.padding = '4px 8px';
-            editBtn.style.background = '#444';
-            editBtn.style.border = 'none';
-            editBtn.style.borderRadius = '4px';
-            editBtn.style.color = '#fff';
-            editBtn.style.cursor = 'pointer';
-            editBtn.addEventListener('click', () => {
-              currentNoteCell = plot.id;
-              showNoteEditor(plot);
-              tip.remove();
-            });
-            
-            content.appendChild(document.createElement('br'));
-            content.appendChild(document.createElement('br'));
-            content.appendChild(editBtn);
-          }
-          
-          tip.appendChild(content);
-          document.body.appendChild(tip);
-        }
-
-        // Initialize the Loc Explorer
-        const container = document.createElement('div');
-        container.className = 'map-container';
-        container.innerHTML = `
-          <h1>Grandland Loc Explorer</h1>
-          <div class="controls">
-            <button id="modeToggleBtn">Switch to Bulk-100 Mode</button>
-            <button id="loadMoreBtn" style="display:none;">Load More (100)</button>
-            <select id="quadrantSelector">
-              <option value="all">All Quadrants</option>
-              <option value="nw">NW Quadrant</option>
-              <option value="ne">NE Quadrant</option>
-              <option value="sw">SW Quadrant</option>
-              <option value="se">SE Quadrant</option>
-            </select>
-            <button id="colorModeToggleBtn">Enter Color Mode</button>
-            <label title="Color for selected cells">
-              Custom Color: <input type="color" id="colorPicker" value="#f39c12"/>
-            </label>
-            <button id="saveNotesBtn">Save All Notes</button>
-            <button id="clearCustomColorsBtn">Clear Custom Colors</button>
-          </div>
-          <div class="status" id="status">
-            Single-Cell Mode: click a cell to load its data…
-          </div>
-          <div class="grid" id="grid"></div>
-          <div id="colorKey"></div>
-        `;
-        document.getElementById('locExplorerRoot').appendChild(container);
-        init();
-
-        // Cleanup function
-        return () => {
-          document.getElementById('locExplorerRoot').innerHTML = '';
-        };
-      }, []);
-
-      return (
-        <div id="locExplorerRoot" className="bg-gray-900 text-white p-4">
-          {/* The Loc Explorer will be rendered here */}
-        </div>
-      );
-    };
-
-    // Render the main app
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
 </body>
