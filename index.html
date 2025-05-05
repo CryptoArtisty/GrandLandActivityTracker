@@ -14,26 +14,40 @@
 <body class="bg-gray-100 text-gray-800">
   <div id="root"></div>
   <script type="text/babel">
-    const RESOURCE_NAMES = { /* ... same as before ... */ };
+    const RESOURCE_NAMES = {
+      2:'Wood',3:'Stone',4:'Coal',5:'Clay',6:'Iron Ore',7:'Stone Block',
+      8:'Stone Plate',9:'Wood Beam',10:'Wood Board',11:'Wood Girder',12:'Clay Brick',
+      13:'Clay Tile',14:'Steel Block',15:'Iron Plate',16:'Nails',17:'Shovel',
+      18:'Spade',19:'Pickax',20:'Hammer',21:'Sledgehammer',22:'Axe',23:'Saw',
+      24:'Gold Pan',25:'Cart',26:'Cart Body',28:'Wagon',31:'Coffee Beans',
+      32:'Chisel',33:'Pan',34:'Spoon',35:'Basket',36:'Kettle',37:'Rake',
+      38:'Nail Puller',39:'Plane Tool',40:'Stone Rubble',41:'Steel Plate',
+      42:'Iron Rail',43:'Tie Cotter',44:'Rail Tie',45:'Trolley',48:'Roasted Coffee',
+      49:'Mug',50:'Mug Of Coffee',52:'Moss',53:'Garden Knife',54:'Horse',55:'Donkey'
+    };
 
-    // Helpers
-    const percentile = (arr,p) => {
-      const s=[...arr].sort((a,b)=>a-b);
-      const idx=(s.length-1)*p, lo=Math.floor(idx), hi=Math.ceil(idx);
-      return s[lo] + (s[hi]-s[lo])*(idx-lo);
+    // Utility: percentiles & median
+    const percentile = (arr, p) => {
+      const s = [...arr].sort((a,b)=>a-b);
+      const idx = (s.length - 1) * p;
+      const lo = Math.floor(idx), hi = Math.ceil(idx);
+      return s[lo] + (s[hi] - s[lo]) * (idx - lo);
     };
     const median = arr => {
-      const s=[...arr].sort((a,b)=>a-b), m=Math.floor(s.length/2);
-      return s.length%2===0 ? (s[m-1]+s[m])/2 : s[m];
+      const s = [...arr].sort((a,b)=>a-b);
+      const m = Math.floor(s.length/2);
+      return s.length % 2 === 0 ? (s[m-1] + s[m]) / 2 : s[m];
     };
 
-    // PRICE TABLE (unchanged)
+    // The price table (unchanged)
     const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
       const [listingSort, setListingSort] = React.useState({ key:'price', direction:'asc' });
-      const toggleListingSort = key => setListingSort(prev=>({
-        key,
-        direction: prev.key===key&&prev.direction==='asc'?'desc':'asc'
-      }));
+      const toggleListingSort = key =>
+        setListingSort(prev => ({
+          key,
+          direction: prev.key===key && prev.direction==='asc' ? 'desc' : 'asc'
+        }));
+
       return (
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
@@ -49,31 +63,37 @@
                     <th key={key}
                       className="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase cursor-pointer"
                       onClick={()=>key!=='delta'&&onSort(key)}>
-                      {labels[key]}{sortConfig.key===key?(sortConfig.direction==='asc'?' ↑':' ↓'):''}
+                      {labels[key]}
+                      {sortConfig.key===key?(sortConfig.direction==='asc'?' ↑':' ↓'):null}
                     </th>
                   );
                 })}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {sortedPrices.map(([typeId, stats], idx)=>{
-                const prev=previousPrices[typeId];
-                const delta= prev!=null ? (stats.average-prev).toFixed(2) : '—';
-                const isOpen=expandedIds.has(typeId);
-                const list=listingsMap[typeId]||[];
-                const sortedList=[...list].sort((a,b)=>{
-                  const A=parseFloat(a[listingSort.key]), B=parseFloat(b[listingSort.key]);
-                  return listingSort.direction==='asc'?A-B:B-A;
+              {sortedPrices.map(([typeId, stats], idx) => {
+                const prev = previousPrices[typeId];
+                const delta = prev != null ? (stats.average - prev).toFixed(2) : '—';
+                const isOpen = expandedIds.has(typeId);
+
+                // Individual listings come from listingsMap, already filtered
+                const list = listingsMap[typeId] || [];
+                const sortedList = [...list].sort((a,b)=>{
+                  const A = parseFloat(a[listingSort.key]), B = parseFloat(b[listingSort.key]);
+                  return listingSort.direction==='asc' ? A-B : B-A;
                 });
+
                 return (
                   <React.Fragment key={typeId}>
                     <tr className={`${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-blue-50`}>
                       <td className="px-4 py-2">
                         <button onClick={()=>toggleExpand(typeId)} className="text-blue-600">
-                          {isOpen?'▼':'▶'}
+                          {isOpen ? '▼' : '▶'}
                         </button>
                       </td>
-                      <td className="px-4 py-2 font-medium text-blue-800">{RESOURCE_NAMES[typeId]||typeId}</td>
+                      <td className="px-4 py-2 font-medium text-blue-800">
+                        {RESOURCE_NAMES[typeId] || 'Unknown'}
+                      </td>
                       <td className="px-4 py-2">{typeId}</td>
                       <td className="px-4 py-2">{stats.average}</td>
                       <td className="px-4 py-2">{(stats.totalAmount/1000).toFixed(2)}</td>
@@ -92,13 +112,13 @@
                           <table className="min-w-full text-sm">
                             <thead className="bg-blue-200">
                               <tr>
-                                <th onClick={()=>toggleListingSort('price')}
-                                    className="px-2 py-1 font-semibold cursor-pointer">
-                                  Price {listingSort.key==='price'?(listingSort.direction==='asc'?'↗':'↘'):''}
+                                <th className="px-2 py-1 font-semibold cursor-pointer"
+                                    onClick={()=>toggleListingSort('price')}>
+                                  Price {listingSort.key==='price'?(listingSort.direction==='asc'?'↗':'↘'):null}
                                 </th>
-                                <th onClick={()=>toggleListingSort('amount')}
-                                    className="px-2 py-1 font-semibold cursor-pointer">
-                                  Amount {listingSort.key==='amount'?(listingSort.direction==='asc'?'↗':'↘'):''}
+                                <th className="px-2 py-1 font-semibold cursor-pointer"
+                                    onClick={()=>toggleListingSort('amount')}>
+                                  Amount {listingSort.key==='amount'?(listingSort.direction==='asc'?'↗':'↘'):null}
                                 </th>
                               </tr>
                             </thead>
@@ -124,7 +144,6 @@
     };
 
     const App = () => {
-      // States
       const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
@@ -136,13 +155,13 @@
       const [showAd, setShowAd] = React.useState(false);
       const adTimerRef = React.useRef(null);
 
-      // New Filters & Settings
+      // **Filters & Settings**
       const [config, setConfig] = React.useState({
         excludeAlliance: false,
         minPrice: 1,
         maxPrice: 1e9,
         avgMode: 'mean',       // 'mean' | 'trimmed' | 'median'
-        trimPercent: 5,       // only for 'trimmed'
+        trimPercent: 5,
         topScarceCount: 3
       });
 
@@ -158,21 +177,15 @@
         'https://wax.cryptolions.io'
       ];
 
-      // Fetch raw rows
+      // Fetch everything from the chain
       const fetchAllRows = async () => {
         let all = [], lower_bound = null;
         while (true) {
           let chunk = null;
           for (const base of RPCS) {
             try {
-              const body = {
-                json: true,
-                code: 'prospectorsn',
-                scope: 'prospectorsn',
-                table: 'market',
-                limit: 1000,
-                ...(lower_bound ? { lower_bound } : {})
-              };
+              const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:1000 };
+              if (lower_bound) body.lower_bound = lower_bound;
               const r = await axios.post(`${base}/v1/chain/get_table_rows`, body);
               chunk = r.data.rows;
               break;
@@ -186,18 +199,10 @@
         return all;
       };
 
-      // Filter function (for both stats & listings)
-      const filterRows = rows => rows.filter(r => {
-        const price = parseFloat(r.price);
-        if (config.excludeAlliance && r.alliance && r.alliance !== '') return false;
-        if (price < config.minPrice || price > config.maxPrice) return false;
-        return true;
-      });
-
-      // Produce stats from cleanRows
-      const computeStats = cleanRows => {
+      // Compute stats from a pre-filtered rows array
+      const processStats = rows => {
         const buckets = {};
-        cleanRows.forEach(item => {
+        rows.forEach(item => {
           const id = item.stuff.type_id;
           const price = parseFloat(item.price);
           const amount = parseFloat(item.stuff.amount);
@@ -205,37 +210,42 @@
           buckets[id].prices.push(price);
           buckets[id].totalAmount += amount;
         });
-        const stats = {};
+        const out = {};
         Object.entries(buckets).forEach(([id, b]) => {
           let avg;
           if (config.avgMode === 'median') {
             avg = median(b.prices);
           } else if (config.avgMode === 'trimmed') {
-            const lo = percentile(b.prices, config.trimPercent / 100);
-            const hi = percentile(b.prices, 1 - config.trimPercent / 100);
-            const pr = b.prices.filter(p => p >= lo && p <= hi);
-            avg = pr.reduce((a, c) => a + c, 0) / pr.length;
+            const lo = percentile(b.prices, config.trimPercent/100);
+            const hi = percentile(b.prices, 1 - config.trimPercent/100);
+            const pr = b.prices.filter(p=>p>=lo && p<=hi);
+            avg = pr.reduce((a,c)=>a+c,0)/pr.length;
           } else {
-            avg = b.prices.reduce((a, c) => a + c, 0) / b.prices.length;
+            avg = b.prices.reduce((a,c)=>a+c,0)/b.prices.length;
           }
           const lo = Math.min(...b.prices), hi = Math.max(...b.prices);
-          stats[id] = {
+          out[id] = {
             average:     +avg.toFixed(2),
             totalAmount: b.totalAmount,
             count:       b.prices.length,
             min:         +lo.toFixed(2),
-            max:         +hi.toFixed(2),
+            max:         +hi.toFixed(2)
           };
         });
-        return stats;
+        return out;
       };
 
-      // Build listingsMap from cleanRows
-      const buildListingsMap = cleanRows => {
+      // Build listings map, filtering by alliance & price bounds
+      const buildListingsMap = rows => {
         const m = {};
-        cleanRows.forEach(item => {
+        rows.forEach(item => {
+          // drop alliance entries
+          if (config.excludeAlliance && item.alliance && item.alliance !== '') return;
+          const priceNum = parseFloat(item.price);
+          // drop out‐of‐bounds prices
+          if (priceNum < config.minPrice || priceNum > config.maxPrice) return;
           const id = item.stuff.type_id;
-          const price = parseFloat(item.price).toFixed(2);
+          const price = priceNum.toFixed(2);
           const amount = parseFloat(item.stuff.amount);
           if (!m[id]) m[id] = [];
           m[id].push({ price, amount });
@@ -243,111 +253,124 @@
         return m;
       };
 
-      // Draw pie charts (unchanged)
+      // Draw pie charts with % in tooltip
       const drawPieCharts = () => {
-        const labels = Object.keys(prices).map(id => RESOURCE_NAMES[id] || id);
-        const quantities = Object.values(prices).map(s => s.totalAmount);
-        const counts = Object.values(prices).map(s => s.count);
-        const palette = ['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#22D3EE','#F472B6'];
+        const labels    = Object.keys(prices).map(id=>RESOURCE_NAMES[id]||id);
+        const quantities= Object.values(prices).map(s=>s.totalAmount);
+        const counts    = Object.values(prices).map(s=>s.count);
+        const palette   = ['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#22D3EE','#F472B6'];
 
         if (quantityChart.current) quantityChart.current.destroy();
-        if (listingChart.current)  listingChart.current.destroy();
+        if (listingChart.current) listingChart.current.destroy();
 
-        const commonOpt = {
-          responsive:true,
-          plugins:{
-            legend:{ position:'bottom' },
-            tooltip:{ callbacks:{
-              label(ctx){
-                const v = ctx.parsed;
-                const data = ctx.chart.data.datasets[0].data;
-                const total = data.reduce((s,x)=>s+x,0);
-                return `${ctx.label}: ${v} (${((v/total)*100).toFixed(2)}%)`;
+        const opts = {
+          responsive: true,
+          plugins: {
+            legend: { position:'bottom' },
+            tooltip: {
+              callbacks: {
+                label(ctx) {
+                  const v = ctx.parsed;
+                  const data = ctx.chart.data.datasets[0].data;
+                  const total = data.reduce((s,x)=>s+x,0);
+                  return `${ctx.label}: ${v} (${((v/total)*100).toFixed(2)}%)`;
+                }
               }
-            }}
+            }
           }
         };
 
         quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
           type:'pie',
           data:{ labels, datasets:[{ data:quantities, backgroundColor:palette.slice(0,labels.length) }]},
-          options: commonOpt
+          options: opts
         });
+
         listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
           type:'pie',
           data:{ labels, datasets:[{ data:counts, backgroundColor:palette.slice(0,labels.length).reverse() }]},
-          options: commonOpt
+          options: opts
         });
       };
 
-      // Fetch & apply filters
+      // Fetch & re‐compute whenever config changes
       const fetchData = async () => {
         setIsLoading(true);
         setErrorMsg(null);
         try {
           const rows = await fetchAllRows();
-          const clean = filterRows(rows);
+
+          // global filter: alliance + price bounds
+          const clean = rows.filter(r=>{
+            if (config.excludeAlliance && r.alliance && r.alliance!=='') return false;
+            const p = parseFloat(r.price);
+            if (p < config.minPrice || p > config.maxPrice) return false;
+            return true;
+          });
+
           setPreviousPrices(prices);
-          setPrices(computeStats(clean));
-          setListingsMap(buildListingsMap(clean));
+          setPrices(processStats(clean));
+          setListingsMap(buildListingsMap(rows));
           setLastUpdated(new Date());
-        } catch (e) {
+        } catch(e) {
           setErrorMsg(e.message);
         } finally {
           setIsLoading(false);
         }
       };
 
-      // Refresh & ad logic
+      // Refresh & ad logic unchanged
       const handleRefresh = () => {
         if (isLoading || showAd) return;
         setShowAd(true);
         adTimerRef.current = setTimeout(()=>{
           setShowAd(false);
           fetchData();
-        }, 3000);
+        },3000);
       };
 
-      // Effects
-      React.useEffect(fetchData, [config]);
-      React.useEffect(()=>{ if (Object.keys(prices).length) drawPieCharts(); }, [prices]);
+      // Scarcity ranking for Hot & Rare
+      const scarceList = React.useMemo(()=>{
+        return Object.entries(prices)
+          .map(([id, st]) => ({
+            id,
+            name: RESOURCE_NAMES[id]||id,
+            demand: st.count,
+            supply: st.totalAmount,
+            ratio: st.count/(st.totalAmount||1)
+          }))
+          .sort((a,b)=>b.ratio - a.ratio)
+          .slice(0, config.topScarceCount);
+      }, [prices, config.topScarceCount]);
 
-      // Table sorting
+      // Sorted table
       const sorted = React.useMemo(()=>{
         return Object.entries(prices).sort((a,b)=>{
           let A,B;
           switch(sortConfig.key){
-            case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
-            case 'typeId':   A=+a[0]; B=+b[0]; break;
-            default:         A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
+            case 'resource': A = RESOURCE_NAMES[a[0]]; B = RESOURCE_NAMES[b[0]]; break;
+            case 'typeId':   A = +a[0]; B = +b[0]; break;
+            default:         A = a[1][sortConfig.key]; B = b[1][sortConfig.key];
           }
-          if (A<B) return sortConfig.direction==='asc' ? -1 : 1;
-          if (A>B) return sortConfig.direction==='asc' ? 1 : -1;
+          if (A < B) return sortConfig.direction==='asc' ? -1 : 1;
+          if (A > B) return sortConfig.direction==='asc' ? 1 : -1;
           return 0;
         });
       }, [prices, sortConfig]);
 
-      // Expand toggles
+      // Side‐effects
+      React.useEffect(fetchData, [config]);
+      React.useEffect(()=>{ if(Object.keys(prices).length) drawPieCharts(); }, [prices]);
+
+      // Expand toggler
       const toggleExpand = id => {
         setExpandedIds(prev=>{
-          const s=new Set(prev);
-          s.has(id)?s.delete(id):s.add(id);
+          const s = new Set(prev);
+          s.has(id)? s.delete(id) : s.add(id);
           return s;
         });
       };
 
-      // Scarcity ranking
-      const scarceList = React.useMemo(()=>{
-        return Object.entries(prices).map(([id,st])=>({
-          id, name:RESOURCE_NAMES[id]||id,
-          demand:st.count, supply:st.totalAmount,
-          ratio:st.count/(st.totalAmount||1)
-        }))
-        .sort((a,b)=>b.ratio - a.ratio)
-        .slice(0, config.topScarceCount);
-      }, [prices, config.topScarceCount]);
-
-      // Render
       return (
         <div className="container mx-auto p-6 relative">
           {showAd && (
@@ -370,7 +393,7 @@
             Prospectors Grandland Price Tracker
           </h1>
 
-          {/* FILTERS & SETTINGS */}
+          {/* Controls Panel */}
           <div className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
             <h2 className="text-2xl font-semibold text-blue-700">Filters & Settings</h2>
             <div className="flex flex-wrap gap-4 items-center">
@@ -416,7 +439,7 @@
                 </label>
               )}
               <label>
-                Top Scarce Count:
+                Top Scarce:
                 <input type="number" className="ml-1 w-16 p-1 border rounded"
                   value={config.topScarceCount}
                   onChange={e=>setConfig(c=>({...c, topScarceCount:+e.target.value||1}))}
@@ -425,7 +448,7 @@
             </div>
           </div>
 
-          {/* REFRESH BUTTON */}
+          {/* Refresh */}
           <div className="flex justify-center space-x-4 mb-6">
             <button onClick={handleRefresh} disabled={isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
@@ -441,28 +464,29 @@
             <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>
           )}
 
-          {/* HOT & RARE */}
+          {/* Hot & Rare */}
           {scarceList.length>0 && (
             <div className="mb-8 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
-              <h2 className="font-semibold text-xl text-yellow-800 mb-2">🔥 Hot & Rare Products</h2>
+              <h2 className="font-semibold text-xl text-yellow-800 mb-2">🔥 Hot & Rare</h2>
               <ul className="list-disc list-inside space-y-1">
-                {scarceList.map(item=>(
-                  <li key={item.id}>
-                    <strong>{item.name}</strong> — Demand: {item.demand}, Supply: {item.supply.toFixed(0)}, Score: {item.ratio.toFixed(2)}
+                {scarceList.map(it=>(
+                  <li key={it.id}>
+                    <strong>{it.name}</strong> — Demand: {it.demand}, Supply: {it.supply.toFixed(0)}, Score: {it.ratio.toFixed(2)}
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* PRICE TABLE */}
+          {/* Price Table */}
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-blue-700">Latest Listings and Prices</h2>
             {sorted.length
               ? <PriceTable
                   sortedPrices={sorted}
                   onSort={k=>setSortConfig(prev=>({
-                    key:k, direction: prev.key===k&&prev.direction==='asc'?'desc':'asc'
+                    key:k,
+                    direction: prev.key===k&&prev.direction==='asc'?'desc':'asc'
                   }))}
                   sortConfig={sortConfig}
                   previousPrices={previousPrices}
@@ -474,7 +498,7 @@
             }
           </section>
 
-          {/* RESOURCE BREAKDOWN */}
+          {/* Resource Breakdown */}
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-blue-700">Resource Breakdown</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
