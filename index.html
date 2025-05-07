@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Prospectors Grandland Resources Tracker </title>
+  <title>Prospectors Grandland Resources Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.development.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.development.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -16,146 +16,116 @@
 
   <script type="text/babel">
     const RESOURCE_NAMES = {
-      2: 'Wood', 3: 'Stone', 4: 'Coal', 5: 'Clay', 6: 'Iron Ore', 7: 'Stone Block',
-      8: 'Stone Plate', 9: 'Wood Beam', 10: 'Wood Board', 11: 'Wood Girder', 12: 'Clay Brick', 13: 'Clay Tile', 14:'Steel Block', 15:'Iron Plate',
-      16:'Nails', 17:'Shovel', 18:'Spade', 19:'Pickax', 20:'Hammer', 21:'Sledgehammer',
-      22:'Axe', 23:'Saw', 24:'Gold Pan', 25:'Cart', 26:'Cart Body', 28:'Wagon', 31:'Coffee Beans', 
-      32:'Chisel', 33:'Pan', 34:'Spoon', 35:'Basket', 36:'Kettle', 37:'Rake', 38:'Nail Puller', 39:'Plane Tool', 40:'Stone Rubble', 41:'Steel Plate', 42:'Iron Rail', 43:'Tie Cotter', 44:'Rail Tie', 45:'Trolley', 48:'Roasted Coffee', 49:'Mug',
-      50:'Mug Of Coffee', 52:'Moss', 53:'Garden Knife', 54:'Horse', 55:'Donkey'
+      2:'Wood',3:'Stone',4:'Coal',5:'Clay',6:'Iron Ore',7:'Stone Block',
+      8:'Stone Plate',9:'Wood Beam',10:'Wood Board',11:'Wood Girder',12:'Clay Brick',
+      13:'Clay Tile',14:'Steel Block',15:'Iron Plate',16:'Nails',17:'Shovel',
+      18:'Spade',19:'Pickax',20:'Hammer',21:'Sledgehammer',22:'Axe',23:'Saw',
+      24:'Gold Pan',25:'Cart',26:'Cart Body',28:'Wagon',31:'Coffee Beans',
+      32:'Chisel',33:'Pan',34:'Spoon',35:'Basket',36:'Kettle',37:'Rake',
+      38:'Nail Puller',39:'Plane Tool',40:'Stone Rubble',41:'Steel Plate',
+      42:'Iron Rail',43:'Tie Cotter',44:'Rail Tie',45:'Trolley',48:'Roasted Coffee',
+      49:'Mug',50:'Mug Of Coffee',52:'Moss',53:'Garden Knife',54:'Horse',55:'Donkey'
     };
 
-    const PriceTable = ({
-      sortedPrices, onSort, sortConfig, previousPrices,
-      listingsMap, expandedIds, toggleExpand
-    }) => {
-      const [listingSort, setListingSort] = React.useState({ key: 'price', direction: 'asc' });
-      const toggleListingSort = key => {
-        setListingSort(prev => ({
+    // Stats helpers
+    const percentile = (arr, p) => {
+      const s = [...arr].sort((a,b)=>a-b);
+      const idx = (s.length-1)*p, lo = Math.floor(idx), hi = Math.ceil(idx);
+      return s[lo] + (s[hi]-s[lo])*(idx-lo);
+    };
+    const median = arr => {
+      const s = [...arr].sort((a,b)=>a-b), m = Math.floor(s.length/2);
+      return s.length%2===0 ? (s[m-1]+s[m])/2 : s[m];
+    };
+
+    // Price table component (unchanged)
+    const PriceTable = ({ sortedPrices, onSort, sortConfig, previousPrices, listingsMap, expandedIds, toggleExpand }) => {
+      const [listingSort, setListingSort] = React.useState({ key:'price', direction:'asc' });
+      const toggleListingSort = key =>
+        setListingSort(prev=>({
           key,
-          direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+          direction: prev.key===key&&prev.direction==='asc'?'desc':'asc'
         }));
-      };
 
       return (
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-blue-100">
               <tr>
-                <th className="px-4 py-2"></th>
-                {['resource','typeId','average','totalAmount','count','min','max','delta']
-                  .map(key => {
-                    const labels = {
-                      resource:    'Resource',
-                      typeId:      'Type ID',
-                      average:     'Avg Price',
-                      totalAmount: 'Total Amount',
-                      count:       'Listings',
-                      min:         'Min',
-                      max:         'Max',
-                      delta:       'Δ Price'
-                    };
-                    return (
-                      <th
-                        key={key}
-                        className="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider cursor-pointer select-none"
-                        onClick={() => key !== 'delta' && onSort(key)}
-                      >
-                        {labels[key]}
-                        {sortConfig.key === key && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                      </th>
-                    );
-                  })}
+                <th></th>
+                {['resource','typeId','average','totalAmount','count','min','max','delta'].map(key=>{
+                  const L = {
+                    resource:'Resource',typeId:'Type ID',average:'Avg Price',
+                    totalAmount:'Total Amt',count:'Listings',min:'Min',max:'Max',delta:'Δ Price'
+                  };
+                  return (
+                    <th key={key}
+                      className="px-4 py-2 text-left text-xs font-semibold text-blue-700 uppercase cursor-pointer"
+                      onClick={()=>key!=='delta'&&onSort(key)}>
+                      {L[key]}{sortConfig.key===key?(sortConfig.direction==='asc'?' ↑':' ↓'):null}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {sortedPrices.map(([typeId, stats], idx) => {
-                const prev = previousPrices[typeId];
-                const delta = prev != null
-                  ? (stats.average - prev).toFixed(2)
-                  : '—';
-                const isOpen = expandedIds.has(typeId);
-
-                // sort individual listings
-                const listings = listingsMap[typeId] || [];
-                const sortedListings = [...listings].sort((a, b) => {
-                  const A = parseFloat(a[listingSort.key]);
-                  const B = parseFloat(b[listingSort.key]);
-                  return listingSort.direction === 'asc' ? A - B : B - A;
-                });
-
-                return (
-                  <React.Fragment key={typeId}>
-                    <tr
-                      className={
-                        ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                        hover:bg-blue-50
-                      }
-                    >
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleExpand(typeId)}
-                          className="focus:outline-none text-blue-600"
-                          title="Show/hide individual listings"
-                        >
-                          {isOpen ? '▼' : '▶'}
-                        </button>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap font-medium text-blue-800">
-                        {RESOURCE_NAMES[typeId] || 'Unknown'}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">{typeId}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{stats.average}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        {/* divide total amount by 1000 */}
-                        {(stats.totalAmount / 1000).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">{stats.count}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{stats.min}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{stats.max}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <span className={delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : ''}>
-                          {delta}
-                        </span>
+            {sortedPrices.map(([typeId, stats], idx) => {
+              const prev = previousPrices[typeId];
+              const delta = prev!=null ? (stats.average - prev).toFixed(2) : '—';
+              const isOpen = expandedIds.has(typeId);
+              const list = listingsMap[typeId]||[];
+              const sortedList = [...list].sort((a,b)=>{
+                const A=parseFloat(a[listingSort.key]), B=parseFloat(b[listingSort.key]);
+                return listingSort.direction==='asc'?A-B:B-A;
+              });
+              return (
+                <React.Fragment key={typeId}>
+                  <tr className={`${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-blue-50`}>
+                    <td className="px-4 py-2">
+                      <button onClick={()=>toggleExpand(typeId)} className="text-blue-600">
+                        {isOpen?'▼':'▶'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-2 font-medium text-blue-800">{RESOURCE_NAMES[typeId]||typeId}</td>
+                    <td className="px-4 py-2">{typeId}</td>
+                    <td className="px-4 py-2">{stats.average}</td>
+                    <td className="px-4 py-2">{(stats.totalAmount/1000).toFixed(2)}</td>
+                    <td className="px-4 py-2">{stats.count}</td>
+                    <td className="px-4 py-2">{stats.min}</td>
+                    <td className="px-4 py-2">{stats.max}</td>
+                    <td className="px-4 py-2">
+                      <span className={delta>0?'text-green-600':delta<0?'text-red-600':''}>{delta}</span>
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-blue-50">
+                      <td colSpan="9" className="px-4 py-2">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-blue-200">
+                            <tr>
+                              <th onClick={()=>toggleListingSort('price')} className="px-2 py-1 font-semibold cursor-pointer">
+                                Price {listingSort.key==='price'?(listingSort.direction==='asc'?'↗':'↘'):null}
+                              </th>
+                              <th onClick={()=>toggleListingSort('amount')} className="px-2 py-1 font-semibold cursor-pointer">
+                                Amount {listingSort.key==='amount'?(listingSort.direction==='asc'?'↗':'↘'):null}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sortedList.map((it,i)=>(
+                              <tr key={i} className={i%2===0?'bg-blue-50':'bg-blue-100'}>
+                                <td className="px-2 py-1">{it.price}</td>
+                                <td className="px-2 py-1">{(it.amount/1000).toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </td>
                     </tr>
-                    {isOpen && (
-                      <tr className="bg-blue-50">
-                        <td colSpan="9" className="px-4 py-2">
-                          <table className="min-w-full text-sm">
-                            <thead className="bg-blue-200">
-                              <tr>
-                                <th
-                                  className="px-2 py-1 text-left font-semibold cursor-pointer"
-                                  onClick={() => toggleListingSort('price')}
-                                >
-                                  Price {listingSort.key === 'price' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
-                                </th>
-                                <th
-                                  className="px-2 py-1 text-left font-semibold cursor-pointer"
-                                  onClick={() => toggleListingSort('amount')}
-                                >
-                                  Amount {listingSort.key === 'amount' ? (listingSort.direction === 'asc' ? '↗' : '↘') : ''}
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {sortedListings.map((item, i) => (
-                                <tr key={i} className={i % 2 === 0 ? 'bg-blue-50' : 'bg-blue-100'}>
-                                  <td className="px-2 py-1">{item.price}</td>
-                                  <td className="px-2 py-1">
-                                    {/* divide each listing amount by 1000 */}
-                                    {(item.amount / 1000).toFixed(2)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+                  )}
+                </React.Fragment>
+              );
+            })}
             </tbody>
           </table>
         </div>
@@ -163,22 +133,39 @@
     };
 
     const App = () => {
+      // core states
       const [prices, setPrices] = React.useState({});
       const [previousPrices, setPreviousPrices] = React.useState({});
       const [listingsMap, setListingsMap] = React.useState({});
-      const [sortConfig, setSortConfig] = React.useState({key:'typeId',direction:'asc'});
+      const [sortConfig, setSortConfig] = React.useState({ key:'typeId', direction:'asc' });
       const [expandedIds, setExpandedIds] = React.useState(new Set());
       const [isLoading, setIsLoading] = React.useState(false);
       const [errorMsg, setErrorMsg] = React.useState(null);
       const [lastUpdated, setLastUpdated] = React.useState(null);
 
-      const [showAd, setShowAd] = React.useState(false);
-      const adTimerRef = React.useRef(null);
+      // filtering & averaging config
+      const [config, setConfig] = React.useState({
+        excludeAlliance: false,
+        minPrice: 1,
+        maxPrice: 1e9,
+        avgMode: 'mean',       // 'mean' | 'trimmed' | 'median'
+        trimPercent: 5,
+        topScarceCount: 3
+      });
 
+      // history state: array of { time: Date, stats: { [typeId]: { average, ... } } }
+      const [history, setHistory] = React.useState([]);
+
+      // selected resource for history chart
+      const [selectedResource, setSelectedResource] = React.useState(null);
+
+      // chart refs
       const quantityChartRef = React.useRef(null);
       const listingChartRef  = React.useRef(null);
+      const historyChartRef  = React.useRef(null);
       const quantityChart    = React.useRef(null);
       const listingChart     = React.useRef(null);
+      const historyChart     = React.useRef(null);
 
       const RPCS = [
         'https://wax.greymass.com',
@@ -186,6 +173,7 @@
         'https://wax.cryptolions.io'
       ];
 
+      // fetch raw rows
       const fetchAllRows = async () => {
         let all = [], lower_bound = null;
         while (true) {
@@ -194,9 +182,7 @@
             try {
               const body = { json:true, code:'prospectorsn', scope:'prospectorsn', table:'market', limit:1000 };
               if (lower_bound) body.lower_bound = lower_bound;
-              const r = await axios.post(${base}/v1/chain/get_table_rows, body, {
-                headers:{ 'Content-Type':'application/json' }
-              });
+              const r = await axios.post(`${base}/v1/chain/get_table_rows`, body);
               chunk = r.data.rows;
               break;
             } catch {}
@@ -209,182 +195,302 @@
         return all;
       };
 
-      const process = rows => {
+      // process stats given a pre-filtered row array
+      const processStats = rows => {
         const buckets = {};
         rows.forEach(item => {
-          const id     = item.stuff.type_id;
-          const price  = parseFloat(item.price);
+          const id = item.stuff.type_id;
+          const price = parseFloat(item.price);
           const amount = parseFloat(item.stuff.amount);
-          if (!buckets[id]) {
-            buckets[id] = { prices:[], min:price, max:price, totalAmount:amount };
-          } else {
-            buckets[id].min = Math.min(buckets[id].min, price);
-            buckets[id].max = Math.max(buckets[id].max, price);
-            buckets[id].totalAmount += amount;
-          }
+          if (!buckets[id]) buckets[id] = { prices: [], totalAmount: 0 };
           buckets[id].prices.push(price);
+          buckets[id].totalAmount += amount;
         });
-        return Object.fromEntries(
-          Object.entries(buckets).map(([id,b]) => {
-            const avg = b.prices.reduce((a,c)=>a+c,0)/b.prices.length;
-            return [id,{
-              average:     +avg.toFixed(2),
-              totalAmount: b.totalAmount,
-              count:       b.prices.length,
-              min:         +b.min.toFixed(2),
-              max:         +b.max.toFixed(2)
-            }];
-          })
-        );
+        const out = {};
+        Object.entries(buckets).forEach(([id,b])=>{
+          let avg;
+          if (config.avgMode==='median') {
+            avg = median(b.prices);
+          } else if (config.avgMode==='trimmed') {
+            const lo = percentile(b.prices,config.trimPercent/100);
+            const hi = percentile(b.prices,1-config.trimPercent/100);
+            const pr = b.prices.filter(p=>p>=lo&&p<=hi);
+            avg = pr.reduce((a,c)=>a+c,0)/pr.length;
+          } else {
+            avg = b.prices.reduce((a,c)=>a+c,0)/b.prices.length;
+          }
+          out[id] = {
+            average: +avg.toFixed(2),
+            totalAmount: b.totalAmount,
+            count: b.prices.length,
+            min: +Math.min(...b.prices).toFixed(2),
+            max: +Math.max(...b.prices).toFixed(2)
+          };
+        });
+        return out;
       };
 
+      // build listingsMap, filtering as per config
       const buildListingsMap = rows => {
-        const map = {};
+        const m = {};
         rows.forEach(item => {
-          const id     = item.stuff.type_id;
-          const price  = parseFloat(item.price).toFixed(2);
-          const amount = parseFloat(item.stuff.amount);
-          if (!map[id]) map[id] = [];
-          map[id].push({ price, amount });
+          if (config.excludeAlliance && item.alliance) return;
+          const priceNum = parseFloat(item.price);
+          if (priceNum < config.minPrice || priceNum > config.maxPrice) return;
+          const id = item.stuff.type_id;
+          if (!m[id]) m[id] = [];
+          m[id].push({ price: priceNum.toFixed(2), amount: parseFloat(item.stuff.amount) });
         });
-        return map;
+        return m;
       };
 
+      // draw pies
       const drawPieCharts = () => {
-        const labels     = Object.keys(prices).map(id => RESOURCE_NAMES[id] || id);
-        const quantities = Object.values(prices).map(s => s.totalAmount);
-        const counts     = Object.values(prices).map(s => s.count);
-
-        const palette = [
-          '#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6',
-          '#EC4899','#22D3EE','#F472B6','#6366F1','#E879F9',
-          '#34D399','#F87171','#4ADE80','#FB923C','#A78BFA',
-          '#F9A8D4'
-        ];
+        const labels     = Object.keys(prices).map(id=>RESOURCE_NAMES[id]||id);
+        const quantities = Object.values(prices).map(s=>s.totalAmount);
+        const counts     = Object.values(prices).map(s=>s.count);
+        const palette    = ['#3B82F6','#EF4444','#10B981','#F59E0B','#8B5CF6','#EC4899','#22D3EE','#F472B6'];
 
         if (quantityChart.current) quantityChart.current.destroy();
-        if (listingChart.current)  listingChart.current.destroy();
+        if (listingChart.current) listingChart.current.destroy();
+
+        const commonOpts = {
+          responsive:true,
+          plugins:{
+            legend:{ position:'bottom' },
+            tooltip:{ callbacks:{
+              label(ctx){
+                const v = ctx.parsed, data = ctx.chart.data.datasets[0].data;
+                const total = data.reduce((s,x)=>s+x,0);
+                return `${ctx.label}: ${v} (${((v/total)*100).toFixed(2)}%)`;
+              }
+            }}
+          }
+        };
 
         quantityChart.current = new Chart(quantityChartRef.current.getContext('2d'), {
-          type: 'pie',
-          data: {
-            labels,
-            datasets:[{
-              data: quantities,
-              backgroundColor: palette.slice(0, labels.length)
-            }]
-          },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          type:'pie',
+          data:{ labels, datasets:[{ data:quantities, backgroundColor:palette.slice(0,labels.length) }]},
+          options: commonOpts
         });
         listingChart.current = new Chart(listingChartRef.current.getContext('2d'), {
-          type: 'pie',
-          data: {
-            labels,
-            datasets:[{
-              data: counts,
-              backgroundColor: palette.slice(0, labels.length).reverse()
-            }]
-          },
-          options:{ responsive:true, plugins:{ legend:{ position:'bottom' } } }
+          type:'pie',
+          data:{ labels, datasets:[{ data:counts, backgroundColor:palette.slice(0,labels.length).reverse() }]},
+          options: commonOpts
         });
       };
 
+      // draw history line for selectedResource
+      const drawHistoryChart = () => {
+        if (historyChart.current) historyChart.current.destroy();
+        if (!selectedResource) return;
+        const pts = history
+          .map(h=>({ t: new Date(h.time), v: (h.stats[selectedResource]||{average:null}).average }))
+          .filter(p=>p.v!=null);
+        const labels = pts.map(p=>p.t.toLocaleString());
+        const data   = pts.map(p=>p.v);
+
+        historyChart.current = new Chart(historyChartRef.current.getContext('2d'), {
+          type:'line',
+          data:{
+            labels,
+            datasets:[{
+              label: RESOURCE_NAMES[selectedResource]||selectedResource,
+              data,
+              fill:false,
+              tension:0.1
+            }]
+          },
+          options:{
+            responsive:true,
+            scales:{ x:{ display:true, title:{ display:true, text:'Time' } }, y:{ display:true, title:{ display:true, text:'Avg Price' } } }
+          }
+        });
+      };
+
+      // fetch + update states & history
       const fetchData = async () => {
-        setIsLoading(true);
-        setErrorMsg(null);
+        setIsLoading(true); setErrorMsg(null);
         try {
           const rows = await fetchAllRows();
-          const proc = process(rows);
-          setPrices(proc);
+          // apply global filter for stats:
+          const clean = rows.filter(r=>{
+            if (config.excludeAlliance && r.alliance) return false;
+            const p = parseFloat(r.price);
+            if (p < config.minPrice || p > config.maxPrice) return false;
+            return true;
+          });
+          const stats = processStats(clean);
+          setPreviousPrices(prices);
+          setPrices(stats);
           setListingsMap(buildListingsMap(rows));
           setLastUpdated(new Date());
-        } catch (e) {
+
+          // append to history; keep only 7 days
+          setHistory(hs=>{
+            const now = Date.now();
+            const weekAgo = now - 7*24*3600*1000;
+            const filtered = hs.filter(e=>new Date(e.time).getTime() >= weekAgo);
+            return [...filtered, { time: new Date(), stats }];
+          });
+        } catch(e) {
           setErrorMsg(e.message);
         } finally {
           setIsLoading(false);
         }
       };
 
-      const handleRefresh = () => {
-        if (isLoading || showAd) return;
-        setShowAd(true);
-        adTimerRef.current = setTimeout(() => {
-          setShowAd(false);
-          fetchData();
-        }, 3000);
-      };
+      // initial + interval
+      React.useEffect(()=>{
+        fetchData();
+        const id = setInterval(fetchData, 30*60*1000);
+        return ()=>clearInterval(id);
+      }, [config]);
 
-      React.useEffect(fetchData, []);
-      React.useEffect(() => {
-        if (Object.keys(prices).length) drawPieCharts();
-      }, [prices]);
+      // redraw pies & history chart
+      React.useEffect(()=>{ if (Object.keys(prices).length) drawPieCharts(); }, [prices]);
+      React.useEffect(drawHistoryChart, [history, selectedResource]);
 
-      const sorted = React.useMemo(() => {
-        const arr = Object.entries(prices);
-        return arr.sort((a,b) => {
+      // sorted table
+      const sorted = React.useMemo(()=>{
+        return Object.entries(prices).sort((a,b)=>{
           let A,B;
-          switch(sortConfig.key) {
+          switch(sortConfig.key){
             case 'resource': A=RESOURCE_NAMES[a[0]]; B=RESOURCE_NAMES[b[0]]; break;
             case 'typeId':   A=+a[0]; B=+b[0]; break;
             default:         A=a[1][sortConfig.key]; B=b[1][sortConfig.key];
           }
-          if (A<B) return sortConfig.direction==='asc' ? -1 : 1;
-          if (A>B) return sortConfig.direction==='asc' ? 1 : -1;
-          return 0;
+          return A<B ? (sortConfig.direction==='asc'? -1:1) : A>B ? (sortConfig.direction==='asc'?1:-1) : 0;
         });
       }, [prices, sortConfig]);
 
-      const toggleExpand = id => {
-        setExpandedIds(prev => {
-          const s = new Set(prev);
-          s.has(id)? s.delete(id) : s.add(id);
-          return s;
-        });
+      // scarcity list for Hot & Rare
+      const scarceList = React.useMemo(()=>{
+        return Object.entries(prices)
+          .map(([id,st])=>({ id, name:RESOURCE_NAMES[id]||id, demand:st.count, supply:st.totalAmount, ratio:st.count/(st.totalAmount||1) }))
+          .sort((a,b)=>b.ratio - a.ratio)
+          .slice(0, config.topScarceCount);
+      }, [prices, config.topScarceCount]);
+
+      // save history
+      const saveHistory = () => {
+        const blob = new Blob([JSON.stringify(history,null,2)], { type:'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'price_history.json';
+        a.click();
+        URL.revokeObjectURL(url);
       };
 
       return (
         <div className="container mx-auto p-6 relative">
-          {showAd && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-yellow-200 p-6 rounded-lg shadow-lg text-center space-y-4">
-                <p className="text-lg font-bold">Advertisement</p>
-                <p>🔥 Found this app useful? Please consider donating some PGL or WAX to Wax account: sklam.wam 🔥</p>
-                <button
-                  onClick={() => {
-                    clearTimeout(adTimerRef.current);
-                    setShowAd(false);
-                    fetchData();
-                  }}
-                  className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Skip Ad &amp; Refresh
-                </button>
-              </div>
+          <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">
+            Prospectors Grandland Price Tracker
+          </h1>
+
+          {/* Filters & Settings */}
+          <div className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
+            <h2 className="text-2xl font-semibold text-blue-700">Filters & Settings</h2>
+            <div className="flex flex-wrap gap-4 items-center">
+              <label className="flex items-center space-x-2">
+                <input type="checkbox" checked={config.excludeAlliance}
+                  onChange={e=>setConfig(c=>({...c, excludeAlliance:e.target.checked}))}/>
+                <span>Exclude alliance-only</span>
+              </label>
+              <label>Min Price:
+                <input type="number" className="ml-1 w-20 p-1 border rounded"
+                  value={config.minPrice}
+                  onChange={e=>setConfig(c=>({...c, minPrice:+e.target.value||1}))}/>
+              </label>
+              <label>Max Price:
+                <input type="number" className="ml-1 w-24 p-1 border rounded"
+                  value={config.maxPrice}
+                  onChange={e=>setConfig(c=>({...c, maxPrice:+e.target.value||1e9}))}/>
+              </label>
+              <label>Avg Mode:
+                <select className="ml-1 p-1 border rounded"
+                  value={config.avgMode}
+                  onChange={e=>setConfig(c=>({...c, avgMode:e.target.value}))}>
+                  <option value="mean">Mean</option>
+                  <option value="trimmed">Trimmed Mean</option>
+                  <option value="median">Median</option>
+                </select>
+              </label>
+              {config.avgMode==='trimmed' && (
+                <label>Trim %:
+                  <input type="number" className="ml-1 w-16 p-1 border rounded"
+                    value={config.trimPercent}
+                    onChange={e=>setConfig(c=>({...c, trimPercent:+e.target.value||5}))}/>
+                </label>
+              )}
+              <label>Top Scarce:
+                <input type="number" className="ml-1 w-16 p-1 border rounded"
+                  value={config.topScarceCount}
+                  onChange={e=>setConfig(c=>({...c, topScarceCount:+e.target.value||1}))}/>
+              </label>
             </div>
-          )}
+          </div>
 
-          <h1 className="text-4xl font-bold mb-6 text-center text-blue-800">Prospectors Grandland Price Tracker </h1>
-
-          <div className="flex justify-center space-x-4 mb-4">
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-            >
-              {isLoading ? 'Refreshing…' : 'Refresh'}
+          {/* Refresh & Save */}
+          <div className="flex flex-wrap justify-center gap-4 mb-6">
+            <button onClick={fetchData} disabled={isLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+              {isLoading?'Refreshing…':'Refresh'}
+            </button>
+            <button onClick={saveHistory}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+              Save History
             </button>
             {lastUpdated && (
               <span className="self-center text-gray-600">
-                Last refreshed: {lastUpdated.toLocaleString()}
+                Last: {lastUpdated.toLocaleString()}
               </span>
             )}
           </div>
-          {errorMsg && (
-            <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>
+          {errorMsg && <div className="mb-6 p-3 bg-red-100 text-red-800 rounded">{errorMsg}</div>}
+
+          {/* History Overview */}
+          <div className="bg-white p-4 rounded-lg shadow mb-6">
+            <h2 className="text-xl font-semibold text-blue-700 mb-2">History Overview</h2>
+            <p>Snapshots stored: <strong>{history.length}</strong></p>
+            {history.length>0 && (
+              <p>From <em>{new Date(history[0].time).toLocaleString()}</em> to <em>{new Date(history[history.length-1].time).toLocaleString()}</em></p>
+            )}
+            <label className="mt-2 block">
+              View resource:
+              <select className="ml-2 p-1 border rounded"
+                value={selectedResource||''}
+                onChange={e=>setSelectedResource(e.target.value||null)}>
+                <option value="">— select —</option>
+                {Object.keys(prices).map(id=>(
+                  <option key={id} value={id}>{RESOURCE_NAMES[id]||id}</option>
+                ))}
+              </select>
+            </label>
+            {selectedResource && (
+              <div className="mt-4">
+                <canvas ref={historyChartRef}></canvas>
+              </div>
+            )}
+          </div>
+
+          {/* Hot & Rare */}
+          {scarceList.length>0 && (
+            <div className="mb-8 p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400">
+              <h2 className="font-semibold text-xl text-yellow-800 mb-2">🔥 Hot & Rare</h2>
+              <ul className="list-disc list-inside">
+                {scarceList.map(it=>(
+                  <li key={it.id}>
+                    <strong>{it.name}</strong> — Demand: {it.demand}, Supply: {it.supply.toFixed(0)}, Score: {it.ratio.toFixed(2)}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
+          {/* Main Price Table */}
           <section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4 text-blue-700">Latest Listings And Prices</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-blue-700">Latest Listings & Prices</h2>
             {sorted.length
               ? <PriceTable
                   sortedPrices={sorted}
@@ -396,13 +502,18 @@
                   previousPrices={previousPrices}
                   listingsMap={listingsMap}
                   expandedIds={expandedIds}
-                  toggleExpand={toggleExpand}
+                  toggleExpand={id=>setExpandedIds(s=>{
+                    const ns=new Set(s);
+                    ns.has(id)?ns.delete(id):ns.add(id);
+                    return ns;
+                  })}
                 />
-              : <div className="text-gray-500">No data available.</div>
+              : <div className="text-gray-500">No data after filtering.</div>
             }
           </section>
 
-          <section>
+          {/* Resource Breakdown */}
+          <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-blue-700">Resource Breakdown</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-white p-4 rounded-lg shadow">
@@ -417,7 +528,7 @@
           </section>
 
           <footer className="mt-12 text-center text-gray-500">
-            Powered by WAX Blockchain | Deployed on Vercel | Prospectors game Fan site by: Cryptoartist (sklam.wam)
+            Powered by WAX Blockchain │ Deployed on Vercel │ Prospectors fan site by Cryptoartist (sklam.wam)
           </footer>
         </div>
       );
